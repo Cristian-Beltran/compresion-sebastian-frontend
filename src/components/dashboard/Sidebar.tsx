@@ -8,31 +8,27 @@ import {
   Moon,
   Sun,
   Home,
-  Users,
   UsersRound,
   User,
-  Microchip,
   Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "../../lib/utils";
 import { useAuthStore } from "@/auth/useAuth";
-
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// Navegación: sin "Familiares" ni "Dispositivos" (solo un dispositivo y roles doctor/paciente)
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Doctores", href: "/doctor", icon: UsersRound },
   { name: "Pacientes", href: "/patients", icon: User },
-  { name: "Familiares", href: "/family", icon: Users },
-  { name: "Datos en tiempo Real", href: "/monitoring", icon: Wifi },
-  { name: "Dispositivos", href: "/devices", icon: Microchip },
+  { name: "Datos en tiempo real", href: "/monitoring", icon: Wifi },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -55,22 +51,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       )}
 
       {/* Sidebar */}
-      <div
+      <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex flex-col h-full">
-          {/* Header */}
+        <div className="flex h-full flex-col">
+          {/* Brand */}
           <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-sidebar-primary/10 rounded-lg">
-                <Activity className="h-6 w-6 text-sidebar-primary" />
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sidebar-primary/10 rounded-xl text-sidebar-primary">
+                <Activity className="h-6 w-6" />
               </div>
-              <span className="text-lg font-bold text-sidebar-foreground">
-                MedDistrib
-              </span>
+              <div className="leading-tight">
+                <span className="block text-base font-bold text-sidebar-foreground">
+                  PulmoBiofeedback
+                </span>
+                <span className="block text-[11px] text-sidebar-foreground/70">
+                  Test pulmonar · Biofeedback
+                </span>
+              </div>
             </div>
             <Button
               variant="ghost"
@@ -83,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-3 space-y-1">
             {navigationItems.map((item) => {
               const isActive = location.pathname === item.href;
               const Icon = item.icon;
@@ -96,12 +97,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
                   <Icon className="h-5 w-5" />
-                  {item.name}
+                  <span className="truncate">{item.name}</span>
                 </Link>
               );
             })}
@@ -120,19 +121,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               ) : (
                 <Sun className="h-5 w-5" />
               )}
-              {theme === "light" ? "Modo Oscuro" : "Modo Claro"}
+              {theme === "light" ? "Modo oscuro" : "Modo claro"}
             </Button>
 
             {/* User Info */}
             {user && (
               <div className="px-3 py-2 bg-sidebar-accent/50 rounded-lg">
-                <p className="text-sm font-medium text-sidebar-foreground">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
                   {user.fullname}
                 </p>
-                <p className="text-xs text-sidebar-foreground/60">
-                  {
-                    //user.email
-                  }
+                <p className="text-xs text-sidebar-foreground/60 truncate">
+                  {/* {user.email} */}
                 </p>
               </div>
             )}
@@ -144,11 +143,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10"
             >
               <LogOut className="h-5 w-5" />
-              Cerrar Sesión
+              Cerrar sesión
             </Button>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 };
