@@ -32,11 +32,11 @@ instance.interceptors.response.use(
       // Solo redirigir si está en una ruta protegida
       const currentPath = window.location.pathname;
       if (
-        currentPath.startsWith("/clinic") ||
-        currentPath.startsWith("/patient") ||
-        currentPath.startsWith("/external")
+        currentPath.startsWith("/admin") ||
+        currentPath.startsWith("/doctor") ||
+        currentPath.startsWith("/patients")
       ) {
-        window.location.href = "/";
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);

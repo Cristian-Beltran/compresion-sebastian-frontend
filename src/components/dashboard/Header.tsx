@@ -6,19 +6,33 @@ import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
-const navigationItems = [
-  { name: "Dashboard", href: "/" },
-  { name: "Doctores", href: "/doctor" },
-  { name: "Pacientes", href: "/patients" },
-  { name: "Datos en tiempo real", href: "/monitoring" },
-];
-
 export const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
+  const role = useAuthStore((state) => state.type);
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const navigationItems =
+    role === "admin"
+      ? [
+          { name: "Dashboard", href: "/admin/dashboard" },
+          { name: "Control", href: "/admin/control" },
+          { name: "Calibracion", href: "/admin/calibration" },
+          { name: "Historial", href: "/admin/history" },
+          { name: "Alertas", href: "/admin/alerts" },
+          { name: "Usuarios", href: "/admin/users" },
+        ]
+      : [
+          { name: "Panel", href: "/doctor/dashboard" },
+          { name: "Pacientes", href: "/doctor/patients" },
+          { name: "Nuevo tratamiento", href: "/doctor/treatments/new" },
+          {
+            name: "Historial tratamientos",
+            href: "/doctor/treatments/history",
+          },
+        ];
 
   const initials = useMemo(() => {
     const name = user?.fullname ?? "Usuario";

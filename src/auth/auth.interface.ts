@@ -1,4 +1,4 @@
-export type UserType = "patient" | "family" | "doctor";
+export type UserType = "admin" | "doctor" | "patient" | "family";
 
 export interface Profile {
   id: string;

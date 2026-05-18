@@ -56,7 +56,8 @@ export default function LoginPage() {
     setServerError("");
     try {
       await login({ email: values.email, password: values.password });
-      navigate("/");
+      const role = useAuthStore.getState().type;
+      navigate(role === "admin" ? "/admin/dashboard" : "/doctor/dashboard");
     } catch {
       setServerError(
         "No pudimos validar sus credenciales. Verifique los datos e intente nuevamente.",
