@@ -15,6 +15,32 @@ export const columns: ColumnDef<Patient>[] = [
     accessorKey: "user.address",
     header: () => "Dirreción",
   },
+  {
+    accessorKey: "age",
+    header: () => "Edad",
+    cell: ({ row }) => row.original.age ?? "-",
+  },
+  {
+    accessorKey: "sex",
+    header: () => "Sexo",
+    cell: ({ row }) => row.original.sex ?? "-",
+  },
+  {
+    accessorKey: "treatedLimb",
+    header: () => "Extremidad tratada",
+    cell: ({ row }) => row.original.treatedLimb ?? "-",
+  },
+  {
+    accessorKey: "mobilityLevel",
+    header: () => "Movilidad",
+    cell: ({ row }) => {
+      const value = row.original.mobilityLevel;
+      if (value === "independiente") return "Independiente";
+      if (value === "movilidad_reducida") return "Movilidad reducida";
+      if (value === "inmovil") return "Inmovil";
+      return "-";
+    },
+  },
 
   {
     accessorKey: "user.createdAt",

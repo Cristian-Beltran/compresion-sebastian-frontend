@@ -166,10 +166,13 @@ export function DoctorTreatmentNewPage() {
             <div className="flex items-center justify-between"><span>Estado</span><span className={`rounded-full px-2 py-1 text-xs ${phase.className}`}>{phase.label}</span></div>
             <div className="flex items-center justify-between"><span>Presion</span><span>{live?.status?.pressureKpa ?? 0} kPa</span></div>
             <div className="flex items-center justify-between"><span>Temperatura</span><span>{live?.status?.temperatureC ?? 0} C</span></div>
-            <div className="flex items-center justify-between"><span>Ciclos</span><span>{live?.status?.cycleIndex ?? activeTreatment?.cycleCount ?? 0}</span></div>
+            <div className="flex items-center justify-between"><span>Ciclos realizados</span><span>{live?.status?.cycleIndex ?? activeTreatment?.cycleCount ?? 0}</span></div>
+            <div className="flex items-center justify-between"><span>Config hold/release</span><span>{Math.floor((live?.status?.configuredHoldTimeMs ?? 0) / 1000)}s / {Math.floor((live?.status?.configuredReleaseTimeMs ?? 0) / 1000)}s</span></div>
+            <div className="flex items-center justify-between"><span>Config ciclos</span><span>{live?.status?.configuredCycleTarget ?? 0}</span></div>
             <div className="flex items-center justify-between"><span>Bomba</span><span>{live?.status?.pumpOn ? "ON" : "OFF"}</span></div>
             <div className="flex items-center justify-between"><span>Valvula</span><span>{live?.status?.valveClosed ? "CERRADA" : "ABIERTA"}</span></div>
             <div className="flex items-center justify-between"><span>Hold restante</span><span>{Math.max(0, Math.floor((live?.status?.holdRemainingMs ?? 0) / 1000))} s</span></div>
+            <div className="flex items-center justify-between"><span>ACK</span><span className="text-xs">{live?.status?.lastAck?.command ? `${live.status.lastAck.command} ${live.status.lastAck.result ?? ""}` : "-"}</span></div>
           </CardContent>
         </Card>
       </div>

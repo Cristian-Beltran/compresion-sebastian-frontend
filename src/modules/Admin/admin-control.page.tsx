@@ -107,6 +107,26 @@ export function AdminControlPage() {
               <span className="text-muted-foreground">Temperatura</span>
               <span className="font-mono">{status?.status?.temperatureC ?? 0} C</span>
             </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Config objetivo</span>
+              <span className="font-mono">
+                {status?.status?.targetPressureKpa ?? 0} kPa / {Math.floor((status?.status?.configuredHoldTimeMs ?? 0) / 1000)} s
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Release / Ciclos</span>
+              <span className="font-mono">
+                {Math.floor((status?.status?.configuredReleaseTimeMs ?? 0) / 1000)} s / {status?.status?.configuredCycleTarget ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Ultimo ACK</span>
+              <span className="font-mono text-xs">
+                {status?.status?.lastAck?.command
+                  ? `${status.status.lastAck.command} ${status.status.lastAck.result ?? ""}`
+                  : "-"}
+              </span>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Conexion MQTT</span>
               <span className={status?.status?.connected ? "text-emerald-400" : "text-red-400"}>

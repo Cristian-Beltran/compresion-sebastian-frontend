@@ -38,8 +38,18 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
       ? z.string().optional() // en edición no valida contraseña
       : z.string().min(6, "Contraseña requerida"), // en creación sí
     address: z.string().optional(),
+    age: z
+      .preprocess(
+        (value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
+        z.number().int().min(0).max(120).optional(),
+      ),
+    sex: z.enum(["masculino", "femenino", "otro"]).optional(),
+    treatedLimb: z.string().optional(),
+    mobilityLevel: z
+      .enum(["independiente", "movilidad_reducida", "inmovil"])
+      .optional(),
   });
-  type PatientFormValues = z.infer<typeof patientSchema>; //
+  type PatientFormValues = any;
 
   const { create, update } = userPatientStore();
   const form = useForm<PatientFormValues>({
@@ -48,6 +58,10 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
       fullname: "",
       email: "",
       address: "",
+      age: undefined,
+      sex: undefined,
+      treatedLimb: "",
+      mobilityLevel: undefined,
     },
   });
 
@@ -58,12 +72,20 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
         fullname: base.fullname,
         email: base.email,
         address: base.address || "",
+        age: user.age,
+        sex: user.sex,
+        treatedLimb: user.treatedLimb || "",
+        mobilityLevel: user.mobilityLevel,
       });
     } else {
       form.reset({
         fullname: "",
         email: "",
         address: "",
+        age: undefined,
+        sex: undefined,
+        treatedLimb: "",
+        mobilityLevel: undefined,
       });
     }
   }, [user, form, isOpen]);
@@ -75,6 +97,10 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
           fullname: data.fullname,
           address: data.address,
           email: data.email,
+          age: data.age,
+          sex: data.sex,
+          treatedLimb: data.treatedLimb,
+          mobilityLevel: data.mobilityLevel,
         });
       } else {
         await create(data);
@@ -158,6 +184,92 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
                 </FormItem>
               )}
             />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="age"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Edad</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={120}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sex"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sexo</FormLabel>
+                    <FormControl>
+                      <select
+                        className="h-10 w-full rounded-md border bg-background px-3"
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? undefined : e.target.value)
+                        }
+                      >
+                        <option value="">Seleccionar</option>
+                        <option value="masculino">Masculino</option>
+                        <option value="femenino">Femenino</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="treatedLimb"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Extremidad tratada</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: pierna izquierda" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="mobilityLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nivel de movilidad</FormLabel>
+                    <FormControl>
+                      <select
+                        className="h-10 w-full rounded-md border bg-background px-3"
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? undefined : e.target.value)
+                        }
+                      >
+                        <option value="">Seleccionar</option>
+                        <option value="independiente">Independiente</option>
+                        <option value="movilidad_reducida">Movilidad reducida</option>
+                        <option value="inmovil">Inmovil</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>
