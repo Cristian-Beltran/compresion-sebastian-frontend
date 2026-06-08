@@ -42,13 +42,13 @@ export function AdminDashboardPage() {
       idx,
       pressure: Number(item.pressureKpa ?? 0),
       temp: Number(item.temperatureC ?? 0),
-      film: Number(item.filmPercent ?? 0),
+      force: Number(item.forceNewtons ?? 0),
     })) ?? [];
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">Dashboard tecnico</h2>
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader>
             <CardTitle>Estado del sistema</CardTitle>
@@ -68,6 +68,12 @@ export function AdminDashboardPage() {
             <CardTitle>Temperatura</CardTitle>
           </CardHeader>
           <CardContent>{status?.status?.temperatureC ?? 0} C</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Fuerza actual</CardTitle>
+          </CardHeader>
+          <CardContent>{Number(status?.status?.forceNewtons ?? 0).toFixed(2)} N</CardContent>
         </Card>
         <Card>
           <CardHeader>
@@ -105,7 +111,7 @@ export function AdminDashboardPage() {
                 <YAxis />
                 <Tooltip />
                 <Line type="monotone" dataKey="temp" stroke="#22c55e" dot={false} />
-                <Line type="monotone" dataKey="film" stroke="#f59e0b" dot={false} />
+                <Line type="monotone" dataKey="force" stroke="#f59e0b" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

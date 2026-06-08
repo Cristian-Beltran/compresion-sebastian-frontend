@@ -8,8 +8,14 @@ type Treatment = {
   id: string;
   patientId: string;
   patientName?: string;
-  configId: string;
+  configId?: string | null;
   intensity?: string;
+  treatmentZone?: string;
+  mobilityLevel?: string;
+  targetPressureKpa?: number;
+  holdTimeSeconds?: number;
+  releaseTimeSeconds?: number;
+  cycleTarget?: number;
   status: string;
   cycleCount: number;
   startedAt: string;
@@ -30,7 +36,7 @@ export function DoctorTreatmentHistoryPage() {
     () =>
       items.filter((item) => {
         const byStatus = statusFilter === "all" ? true : item.status === statusFilter;
-        const text = `${item.patientId} ${item.intensity ?? ""}`.toLowerCase();
+        const text = `${item.patientId} ${item.patientName ?? ""} ${item.intensity ?? ""} ${item.treatmentZone ?? ""} ${item.mobilityLevel ?? ""}`.toLowerCase();
         return byStatus && text.includes(search.toLowerCase());
       }),
     [items, search, statusFilter],
@@ -42,6 +48,12 @@ export function DoctorTreatmentHistoryPage() {
       "patientId",
       "patientName",
       "intensity",
+      "treatmentZone",
+      "mobilityLevel",
+      "targetPressureKpa",
+      "holdTimeSeconds",
+      "releaseTimeSeconds",
+      "cycleTarget",
       "status",
       "cycleCount",
       "durationSeconds",
@@ -53,6 +65,12 @@ export function DoctorTreatmentHistoryPage() {
       item.patientId,
       item.patientName ?? "",
       item.intensity ?? "",
+      item.treatmentZone ?? "",
+      item.mobilityLevel ?? "",
+      String(item.targetPressureKpa ?? ""),
+      String(item.holdTimeSeconds ?? ""),
+      String(item.releaseTimeSeconds ?? ""),
+      String(item.cycleTarget ?? ""),
       item.status,
       String(item.cycleCount),
       String(item.durationSeconds ?? 0),
@@ -82,7 +100,7 @@ export function DoctorTreatmentHistoryPage() {
         <CardContent className="space-y-3">
           <div className="grid gap-2 md:grid-cols-3">
             <Input
-              placeholder="Buscar por paciente o intensidad"
+              placeholder="Buscar por paciente, intensidad, zona o movilidad"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -106,6 +124,9 @@ export function DoctorTreatmentHistoryPage() {
                   <th className="px-3 py-2">Paciente</th>
                   <th className="px-3 py-2">Nombre</th>
                   <th className="px-3 py-2">Intensidad</th>
+                  <th className="px-3 py-2">Zona</th>
+                  <th className="px-3 py-2">Movilidad</th>
+                  <th className="px-3 py-2">Config</th>
                   <th className="px-3 py-2">Estado</th>
                   <th className="px-3 py-2">Ciclos</th>
                   <th className="px-3 py-2">Duracion</th>
@@ -119,6 +140,11 @@ export function DoctorTreatmentHistoryPage() {
                     <td className="px-3 py-2">{item.patientId}</td>
                     <td className="px-3 py-2">{item.patientName ?? "-"}</td>
                     <td className="px-3 py-2 uppercase">{item.intensity ?? "-"}</td>
+                    <td className="px-3 py-2">{item.treatmentZone?.replace("_", " ") ?? "-"}</td>
+                    <td className="px-3 py-2">{item.mobilityLevel?.replace("_", " ") ?? "-"}</td>
+                    <td className="px-3 py-2">
+                      {item.targetPressureKpa ?? "-"} kPa / {item.holdTimeSeconds ?? "-"}s / {item.releaseTimeSeconds ?? "-"}s / {item.cycleTarget ?? "-"} ciclos
+                    </td>
                     <td className="px-3 py-2">{item.status}</td>
                     <td className="px-3 py-2">{item.cycleCount}</td>
                     <td className="px-3 py-2">{item.durationSeconds ?? 0}s</td>

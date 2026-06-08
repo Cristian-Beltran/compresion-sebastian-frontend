@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
 import {
@@ -14,6 +15,9 @@ import {
 
 type PatientRow = { id: string; fullname: string; status: string };
 type Intensity = "low" | "medium" | "high";
+type TreatmentMode = "preset" | "custom";
+type TreatmentZone = "pantorrilla_izquierda" | "pantorrilla_derecha";
+type MobilityLevel = "independiente" | "movilidad_reducida" | "inmovil";
 
 const INTENSITIES: Array<{ key: Intensity; title: string; desc: string }> = [
   { key: "low", title: "Baja intensidad", desc: "Compresion suave y continua" },
@@ -44,6 +48,15 @@ function stateMeta(state?: string) {
 export function DoctorTreatmentNewPage() {
   const [patientId, setPatientId] = useState("");
   const [intensity, setIntensity] = useState<Intensity | null>(null);
+  const [mode, setMode] = useState<TreatmentMode>("preset");
+  const [treatmentZone, setTreatmentZone] = useState<TreatmentZone | "">("");
+  const [mobilityLevel, setMobilityLevel] = useState<MobilityLevel | "">("");
+  const [customConfig, setCustomConfig] = useState({
+    targetPressureKpa: 5,
+    holdTimeSeconds: 10,
+    releaseTimeSeconds: 5,
+    cycleTarget: 25,
+  });
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [live, setLive] = useState<any>(null);
   const [activeTreatment, setActiveTreatment] = useState<any>(null);
@@ -79,12 +92,22 @@ export function DoctorTreatmentNewPage() {
   const phase = stateMeta(live?.status?.state);
 
   const start = async () => {
-    if (!patientId || !intensity) {
-      toast.error("Selecciona paciente e intensidad");
+    if (!patientId || !treatmentZone || !mobilityLevel) {
+      toast.error("Selecciona paciente, zona y movilidad");
+      return;
+    }
+    if (mode === "preset" && !intensity) {
+      toast.error("Selecciona una intensidad");
       return;
     }
     try {
-      await axios.post("/doctor/treatments/start", { patientId, intensity });
+      await axios.post("/doctor/treatments/start", {
+        patientId,
+        treatmentZone,
+        mobilityLevel,
+        intensity: mode === "custom" ? "custom" : intensity,
+        ...(mode === "custom" ? customConfig : {}),
+      });
       toast.success("Tratamiento iniciado");
       await load();
     } catch {
@@ -109,22 +132,102 @@ export function DoctorTreatmentNewPage() {
 
       <Card className="border-cyan-300/20 bg-gradient-to-br from-card to-card/70">
         <CardHeader><CardTitle>Seleccion del protocolo</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          {INTENSITIES.map((item) => (
-            <button
-              key={item.key}
-              className={
-                "rounded-2xl border p-5 text-left transition-all " +
-                (intensity === item.key
-                  ? "border-cyan-400 bg-cyan-500/10 shadow-[0_0_20px_rgba(0,212,255,0.15)]"
-                  : "border-border hover:border-cyan-500/40")
-              }
-              onClick={() => setIntensity(item.key)}
-            >
-              <p className="text-lg font-semibold">{item.title}</p>
-              <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
-            </button>
-          ))}
+        <CardContent>
+          <Tabs value={mode} onValueChange={(value) => setMode(value as TreatmentMode)}>
+            <TabsList className="grid h-14 w-full grid-cols-2 rounded-md">
+              <TabsTrigger value="preset" className="text-base">
+                Terapia predefinida
+              </TabsTrigger>
+              <TabsTrigger value="custom" className="text-base">
+                Terapia custom
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="preset" className="mt-4 grid gap-3 md:grid-cols-3">
+              {INTENSITIES.map((item) => (
+                <button
+                  key={item.key}
+                  className={
+                    "rounded-md border p-5 text-left transition-all " +
+                    (intensity === item.key
+                      ? "border-cyan-400 bg-cyan-500/10 shadow-[0_0_20px_rgba(0,212,255,0.15)]"
+                      : "border-border hover:border-cyan-500/40")
+                  }
+                  onClick={() => setIntensity(item.key)}
+                  disabled={!!activeTreatment}
+                >
+                  <p className="text-lg font-semibold">{item.title}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
+                </button>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="custom" className="mt-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                {[
+                  {
+                    key: "targetPressureKpa",
+                    label: "Presion objetivo",
+                    min: 1,
+                    max: 12,
+                    step: 0.5,
+                    unit: "kPa",
+                  },
+                  {
+                    key: "holdTimeSeconds",
+                    label: "Tiempo de mantenimiento",
+                    min: 1,
+                    max: 60,
+                    step: 1,
+                    unit: "s",
+                  },
+                  {
+                    key: "releaseTimeSeconds",
+                    label: "Tiempo de liberacion",
+                    min: 1,
+                    max: 60,
+                    step: 1,
+                    unit: "s",
+                  },
+                  {
+                    key: "cycleTarget",
+                    label: "Ciclos",
+                    min: 1,
+                    max: 80,
+                    step: 1,
+                    unit: "",
+                  },
+                ].map((item) => {
+                  const key = item.key as keyof typeof customConfig;
+                  return (
+                    <div key={item.key} className="rounded-md border p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium">{item.label}</span>
+                        <span className="font-mono text-sm text-cyan-500">
+                          {customConfig[key]} {item.unit}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={item.min}
+                        max={item.max}
+                        step={item.step}
+                        value={customConfig[key]}
+                        onChange={(event) =>
+                          setCustomConfig((current) => ({
+                            ...current,
+                            [key]: Number(event.target.value),
+                          }))
+                        }
+                        disabled={!!activeTreatment}
+                        className="w-full accent-cyan-500"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -141,9 +244,32 @@ export function DoctorTreatmentNewPage() {
               <option value="">Selecciona paciente</option>
               {patients.map((patient) => (
                 <option key={patient.id} value={patient.id}>
-                  {patient.fullname}
+                  {patient.fullname} - {patient.id}
                 </option>
               ))}
+            </select>
+
+            <select
+              className="h-11 w-full rounded-md border bg-background px-3"
+              value={treatmentZone}
+              onChange={(e) => setTreatmentZone(e.target.value as TreatmentZone | "")}
+              disabled={!!activeTreatment}
+            >
+              <option value="">Selecciona zona del tratamiento</option>
+              <option value="pantorrilla_izquierda">Pantorrilla izquierda</option>
+              <option value="pantorrilla_derecha">Pantorrilla derecha</option>
+            </select>
+
+            <select
+              className="h-11 w-full rounded-md border bg-background px-3"
+              value={mobilityLevel}
+              onChange={(e) => setMobilityLevel(e.target.value as MobilityLevel | "")}
+              disabled={!!activeTreatment}
+            >
+              <option value="">Selecciona movilidad</option>
+              <option value="independiente">Independiente</option>
+              <option value="movilidad_reducida">Movilidad reducida</option>
+              <option value="inmovil">Inmovil</option>
             </select>
 
             {!activeTreatment && (
@@ -163,9 +289,13 @@ export function DoctorTreatmentNewPage() {
           <CardHeader><CardTitle>Monitor en tiempo real</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center justify-between"><span>Paciente activo</span><span>{currentPatientName}</span></div>
+            <div className="flex items-center justify-between"><span>Tipo</span><span className="uppercase">{activeTreatment?.intensity ?? "-"}</span></div>
+            <div className="flex items-center justify-between"><span>Zona</span><span>{activeTreatment?.treatmentZone?.replace("_", " ") ?? "-"}</span></div>
+            <div className="flex items-center justify-between"><span>Movilidad</span><span>{activeTreatment?.mobilityLevel?.replace("_", " ") ?? "-"}</span></div>
             <div className="flex items-center justify-between"><span>Estado</span><span className={`rounded-full px-2 py-1 text-xs ${phase.className}`}>{phase.label}</span></div>
             <div className="flex items-center justify-between"><span>Presion</span><span>{live?.status?.pressureKpa ?? 0} kPa</span></div>
             <div className="flex items-center justify-between"><span>Temperatura</span><span>{live?.status?.temperatureC ?? 0} C</span></div>
+            <div className="flex items-center justify-between"><span>Fuerza</span><span>{Number(live?.status?.forceNewtons ?? 0).toFixed(2)} N</span></div>
             <div className="flex items-center justify-between"><span>Ciclos realizados</span><span>{live?.status?.cycleIndex ?? activeTreatment?.cycleCount ?? 0}</span></div>
             <div className="flex items-center justify-between"><span>Config hold/release</span><span>{Math.floor((live?.status?.configuredHoldTimeMs ?? 0) / 1000)}s / {Math.floor((live?.status?.configuredReleaseTimeMs ?? 0) / 1000)}s</span></div>
             <div className="flex items-center justify-between"><span>Config ciclos</span><span>{live?.status?.configuredCycleTarget ?? 0}</span></div>

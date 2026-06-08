@@ -4,16 +4,12 @@ import type { Patient } from "../patient.interface";
 
 export const columns: ColumnDef<Patient>[] = [
   {
+    accessorKey: "id",
+    header: () => "ID paciente",
+  },
+  {
     accessorKey: "user.fullname",
-    header: () => "Nombre",
-  },
-  {
-    accessorKey: "user.email",
-    header: () => "Correo",
-  },
-  {
-    accessorKey: "user.address",
-    header: () => "Dirreción",
+    header: () => "Nombre completo",
   },
   {
     accessorKey: "age",
@@ -25,23 +21,6 @@ export const columns: ColumnDef<Patient>[] = [
     header: () => "Sexo",
     cell: ({ row }) => row.original.sex ?? "-",
   },
-  {
-    accessorKey: "treatedLimb",
-    header: () => "Extremidad tratada",
-    cell: ({ row }) => row.original.treatedLimb ?? "-",
-  },
-  {
-    accessorKey: "mobilityLevel",
-    header: () => "Movilidad",
-    cell: ({ row }) => {
-      const value = row.original.mobilityLevel;
-      if (value === "independiente") return "Independiente";
-      if (value === "movilidad_reducida") return "Movilidad reducida";
-      if (value === "inmovil") return "Inmovil";
-      return "-";
-    },
-  },
-
   {
     accessorKey: "user.createdAt",
     id: "createdAt",

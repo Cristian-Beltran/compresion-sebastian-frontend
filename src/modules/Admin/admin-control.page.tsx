@@ -108,6 +108,10 @@ export function AdminControlPage() {
               <span className="font-mono">{status?.status?.temperatureC ?? 0} C</span>
             </div>
             <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-muted-foreground">Fuerza</span>
+              <span className="font-mono">{Number(status?.status?.forceNewtons ?? 0).toFixed(2)} N</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-2">
               <span className="text-muted-foreground">Config objetivo</span>
               <span className="font-mono">
                 {status?.status?.targetPressureKpa ?? 0} kPa / {Math.floor((status?.status?.configuredHoldTimeMs ?? 0) / 1000)} s

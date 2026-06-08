@@ -33,6 +33,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       Cookies.set("auth_token", access_token, { expires: 3 });
       Cookies.set("auth_type", user.type);
       Cookies.set("auth_user", JSON.stringify(user));
+      localStorage.setItem("session_started_at", String(Date.now()));
 
       const version = localStorage.getItem("view_version");
       if (!version) localStorage.setItem("view_version", "1");
@@ -66,6 +67,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const type = (Cookies.get("auth_type") as UserType | null) ?? null;
     const user = Cookies.get("auth_user");
     if (token && user && type) {
+      if (!localStorage.getItem("session_started_at")) {
+        localStorage.setItem("session_started_at", String(Date.now()));
+      }
       set({ token, user: JSON.parse(user), type });
     }
   },

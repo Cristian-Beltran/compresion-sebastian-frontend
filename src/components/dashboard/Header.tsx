@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Activity, BadgeCheck, Menu, Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/auth/useAuth";
@@ -13,6 +13,7 @@ export const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const navigationItems =
     role === "admin"
@@ -49,6 +50,29 @@ export const Header: React.FC = () => {
   };
 
   const isActive = (href: string) => location.pathname === href;
+  const sessionUptime = useMemo(() => {
+    const hours = Math.floor(elapsedSeconds / 3600);
+    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+    const seconds = elapsedSeconds % 60;
+    return [hours, minutes, seconds]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  }, [elapsedSeconds]);
+
+  useEffect(() => {
+    const startedAt = Number(localStorage.getItem("session_started_at") ?? Date.now());
+    if (!localStorage.getItem("session_started_at")) {
+      localStorage.setItem("session_started_at", String(startedAt));
+    }
+
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    };
+
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
@@ -134,7 +158,7 @@ export const Header: React.FC = () => {
                   {user?.fullname ?? "Usuario"}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  Sesión activa
+                  Sesión activa · {sessionUptime}
                 </span>
               </div>
             </div>

@@ -60,7 +60,7 @@ export function DoctorDashboardPage() {
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold tracking-tight">Panel clinico</h2>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader><CardTitle>Estado sistema</CardTitle></CardHeader>
           <CardContent>
@@ -74,6 +74,10 @@ export function DoctorDashboardPage() {
         <Card>
           <CardHeader><CardTitle>Temp. actual</CardTitle></CardHeader>
           <CardContent>{live?.status?.temperatureC ?? 0} C</CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Fuerza actual</CardTitle></CardHeader>
+          <CardContent>{Number(live?.status?.forceNewtons ?? 0).toFixed(2)} N</CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Pacientes</CardTitle></CardHeader>

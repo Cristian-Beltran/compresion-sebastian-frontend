@@ -5,18 +5,14 @@ export interface Patient {
   user: User;
   age?: number;
   sex?: "masculino" | "femenino" | "otro";
-  treatedLimb?: string;
-  mobilityLevel?: "independiente" | "movilidad_reducida" | "inmovil";
 }
 
 export interface CreatePatient {
   fullname: string;
-  email: string;
+  email?: string;
   password?: string;
   address?: string;
   deviceId?: string;
   age?: number;
   sex?: "masculino" | "femenino" | "otro";
-  treatedLimb?: string;
-  mobilityLevel?: "independiente" | "movilidad_reducida" | "inmovil";
 }
