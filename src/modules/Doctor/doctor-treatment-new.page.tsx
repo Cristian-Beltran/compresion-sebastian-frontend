@@ -18,6 +18,24 @@ type Intensity = "low" | "medium" | "high";
 type TreatmentMode = "preset" | "custom";
 type TreatmentZone = "pantorrilla_izquierda" | "pantorrilla_derecha";
 type MobilityLevel = "independiente" | "movilidad_reducida" | "inmovil";
+type LiveReading = {
+  state?: string;
+  pressureKpa?: number | string | null;
+  targetPressureKpa?: number | string | null;
+  forceNewtons?: number | string | null;
+  temperatureC?: number | string | null;
+  cycleIndex?: number | string | null;
+  pumpOn?: boolean;
+  valveClosed?: boolean;
+  holdRemainingMs?: number | string | null;
+  configuredHoldTimeMs?: number | string | null;
+  configuredReleaseTimeMs?: number | string | null;
+  configuredCycleTarget?: number | string | null;
+  lastAck?: {
+    command?: string;
+    result?: string;
+  } | null;
+};
 
 const INTENSITIES: Array<{ key: Intensity; title: string; desc: string }> = [
   { key: "low", title: "Baja intensidad", desc: "Compresion suave y continua" },
@@ -45,6 +63,11 @@ function stateMeta(state?: string) {
   }
 }
 
+function asNumber(value: unknown, fallback = 0) {
+  const numeric = Number(value ?? fallback);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 export function DoctorTreatmentNewPage() {
   const [patientId, setPatientId] = useState("");
   const [intensity, setIntensity] = useState<Intensity | null>(null);
@@ -62,14 +85,13 @@ export function DoctorTreatmentNewPage() {
   const [activeTreatment, setActiveTreatment] = useState<any>(null);
 
   const load = async () => {
-    const [patientsRes, liveRes, activeRes] = await Promise.all([
+    const [patientsRes, liveRes] = await Promise.all([
       axios.get("/doctor/patients"),
       axios.get("/doctor/dashboard/live"),
-      axios.get("/doctor/treatments/active"),
     ]);
     setPatients(patientsRes.data);
     setLive(liveRes.data);
-    setActiveTreatment(activeRes.data);
+    setActiveTreatment(liveRes.data?.activeTreatment ?? null);
   };
 
   useEffect(() => {
@@ -83,13 +105,29 @@ export function DoctorTreatmentNewPage() {
     return row?.fullname ?? activeTreatment?.patientName ?? activeTreatment?.patientId ?? "-";
   }, [patients, activeTreatment]);
 
+  const telemetryHistory = Array.isArray(live?.history) ? live.history : [];
+  const latestTelemetry = (telemetryHistory[telemetryHistory.length - 1] ??
+    live?.telemetry ??
+    null) as LiveReading | null;
+  const liveStatus = (live?.status ?? null) as LiveReading | null;
+  const monitorStatus: LiveReading = {
+    ...(liveStatus ?? {}),
+    ...(latestTelemetry ?? {}),
+    state: latestTelemetry?.state ?? liveStatus?.state,
+    lastAck: liveStatus?.lastAck ?? null,
+  };
   const history =
-    live?.history?.map((item: any, idx: number) => ({
+    telemetryHistory.map((item: any, idx: number) => ({
       idx,
-      pressure: Number(item.pressureKpa ?? 0),
-      temp: Number(item.temperatureC ?? 0),
-    })) ?? [];
-  const phase = stateMeta(live?.status?.state);
+      pressure: asNumber(item.pressureKpa),
+      temp: asNumber(item.temperatureC),
+    }));
+  const phase = stateMeta(monitorStatus.state);
+  const holdSeconds = Math.max(0, Math.floor(asNumber(monitorStatus.holdRemainingMs) / 1000));
+  const configuredHoldSeconds = Math.floor(asNumber(monitorStatus.configuredHoldTimeMs) / 1000);
+  const configuredReleaseSeconds = Math.floor(
+    asNumber(monitorStatus.configuredReleaseTimeMs) / 1000,
+  );
 
   const start = async () => {
     if (!patientId || !treatmentZone || !mobilityLevel) {
@@ -290,19 +328,19 @@ export function DoctorTreatmentNewPage() {
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center justify-between"><span>Paciente activo</span><span>{currentPatientName}</span></div>
             <div className="flex items-center justify-between"><span>Tipo</span><span className="uppercase">{activeTreatment?.intensity ?? "-"}</span></div>
-            <div className="flex items-center justify-between"><span>Zona</span><span>{activeTreatment?.treatmentZone?.replace("_", " ") ?? "-"}</span></div>
-            <div className="flex items-center justify-between"><span>Movilidad</span><span>{activeTreatment?.mobilityLevel?.replace("_", " ") ?? "-"}</span></div>
+            <div className="flex items-center justify-between"><span>Zona</span><span>{activeTreatment?.treatmentZone?.replaceAll("_", " ") ?? "-"}</span></div>
+            <div className="flex items-center justify-between"><span>Movilidad</span><span>{activeTreatment?.mobilityLevel?.replaceAll("_", " ") ?? "-"}</span></div>
             <div className="flex items-center justify-between"><span>Estado</span><span className={`rounded-full px-2 py-1 text-xs ${phase.className}`}>{phase.label}</span></div>
-            <div className="flex items-center justify-between"><span>Presion</span><span>{live?.status?.pressureKpa ?? 0} kPa</span></div>
-            <div className="flex items-center justify-between"><span>Temperatura</span><span>{live?.status?.temperatureC ?? 0} C</span></div>
-            <div className="flex items-center justify-between"><span>Fuerza</span><span>{Number(live?.status?.forceNewtons ?? 0).toFixed(2)} N</span></div>
-            <div className="flex items-center justify-between"><span>Ciclos realizados</span><span>{live?.status?.cycleIndex ?? activeTreatment?.cycleCount ?? 0}</span></div>
-            <div className="flex items-center justify-between"><span>Config hold/release</span><span>{Math.floor((live?.status?.configuredHoldTimeMs ?? 0) / 1000)}s / {Math.floor((live?.status?.configuredReleaseTimeMs ?? 0) / 1000)}s</span></div>
-            <div className="flex items-center justify-between"><span>Config ciclos</span><span>{live?.status?.configuredCycleTarget ?? 0}</span></div>
-            <div className="flex items-center justify-between"><span>Bomba</span><span>{live?.status?.pumpOn ? "ON" : "OFF"}</span></div>
-            <div className="flex items-center justify-between"><span>Valvula</span><span>{live?.status?.valveClosed ? "CERRADA" : "ABIERTA"}</span></div>
-            <div className="flex items-center justify-between"><span>Hold restante</span><span>{Math.max(0, Math.floor((live?.status?.holdRemainingMs ?? 0) / 1000))} s</span></div>
-            <div className="flex items-center justify-between"><span>ACK</span><span className="text-xs">{live?.status?.lastAck?.command ? `${live.status.lastAck.command} ${live.status.lastAck.result ?? ""}` : "-"}</span></div>
+            <div className="flex items-center justify-between"><span>Presion</span><span>{asNumber(monitorStatus.pressureKpa).toFixed(2)} kPa</span></div>
+            <div className="flex items-center justify-between"><span>Temperatura</span><span>{asNumber(monitorStatus.temperatureC).toFixed(1)} C</span></div>
+            <div className="flex items-center justify-between"><span>Fuerza</span><span>{asNumber(monitorStatus.forceNewtons).toFixed(2)} N</span></div>
+            <div className="flex items-center justify-between"><span>Ciclos realizados</span><span>{asNumber(monitorStatus.cycleIndex ?? activeTreatment?.cycleCount)}</span></div>
+            <div className="flex items-center justify-between"><span>Config hold/release</span><span>{configuredHoldSeconds}s / {configuredReleaseSeconds}s</span></div>
+            <div className="flex items-center justify-between"><span>Config ciclos</span><span>{asNumber(monitorStatus.configuredCycleTarget)}</span></div>
+            <div className="flex items-center justify-between"><span>Bomba</span><span>{monitorStatus.pumpOn ? "ON" : "OFF"}</span></div>
+            <div className="flex items-center justify-between"><span>Valvula</span><span>{monitorStatus.valveClosed ? "CERRADA" : "ABIERTA"}</span></div>
+            <div className="flex items-center justify-between"><span>Hold restante</span><span>{holdSeconds} s</span></div>
+            <div className="flex items-center justify-between"><span>ACK</span><span className="text-xs">{monitorStatus.lastAck?.command ? `${monitorStatus.lastAck.command} ${monitorStatus.lastAck.result ?? ""}` : "-"}</span></div>
           </CardContent>
         </Card>
       </div>
