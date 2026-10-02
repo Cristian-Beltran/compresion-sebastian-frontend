@@ -5,8 +5,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[context.production.environment]
+  VITE_API_URL = "https://server-local.tail9af6ac.ts.net/sebastian"
+  VITE_MQTT_WS_URL = "wss://server-local.tail9af6ac.ts.net"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
