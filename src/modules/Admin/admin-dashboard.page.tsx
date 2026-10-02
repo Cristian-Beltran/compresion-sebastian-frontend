@@ -6,11 +6,8 @@ import {
   Activity,
   Fan,
   Gauge,
-  Radio,
   ShieldCheck,
   Thermometer,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import {
   Line,
