@@ -1,7 +1,6 @@
 import type { InternalAxiosRequestConfig } from "axios";
 import axios from "axios";
 import Cookies from "js-cookie";
-//import Cookies from "js-cookie";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 const instance = axios.create({
@@ -19,23 +18,21 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// ✅ Nuevo interceptor de respuesta para manejar 401
 instance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o inválido
       Cookies.remove("auth_token");
       Cookies.remove("auth_type");
       Cookies.remove("auth_user");
 
-      // Solo redirigir si está en una ruta protegida
       const currentPath = window.location.pathname;
-      if (
+      const isProtectedRoute = 
         currentPath.startsWith("/admin") ||
         currentPath.startsWith("/doctor") ||
-        currentPath.startsWith("/patients")
-      ) {
+        currentPath === "/";
+      
+      if (isProtectedRoute && currentPath !== "/login") {
         window.location.href = "/login";
       }
     }
