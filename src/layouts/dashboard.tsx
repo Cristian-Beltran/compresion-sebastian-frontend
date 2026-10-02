@@ -1,23 +1,22 @@
 import type React from "react";
 import BaseLayout from "./base";
 import Header from "@/components/dashboard/Header";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Outlet } from "react-router-dom";
 
 const DashboardLayout: React.FC = () => {
-  // ya no usamos sidebar, pero dejo el estado por si quieres algún overlay futuro
-
   return (
     <BaseLayout showThemeToggle={false}>
-      <div className="min-h-screen flex flex-col bg-background">
-        {/* Header con navegación */}
-        <Header />
-
-        {/* Contenido */}
-        <main className="flex-1 overflow-y-auto bg-muted/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-            <Outlet />
-          </div>
-        </main>
+      <div className="min-h-screen flex bg-background">
+        <Sidebar />
+        <div className="flex flex-1 flex-col pl-[260px]">
+          <Header />
+          <main className="flex-1 overflow-y-auto bg-background">
+            <div className="mx-auto max-w-[1600px] px-6 py-6">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
     </BaseLayout>
   );

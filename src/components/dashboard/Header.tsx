@@ -1,10 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Activity, BadgeCheck, Menu, Sun, Moon, LogOut } from "lucide-react";
+import { Sun, Moon, LogOut, WifiOff, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/auth/useAuth";
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { cn } from "@/lib/utils";
+import axios from "@/lib/axios";
+
+const pageLabels: Record<string, string> = {
+  "/admin/dashboard": "Dashboard",
+  "/admin/control": "Control",
+  "/admin/calibration": "Calibracion",
+  "/admin/history": "Historial",
+  "/admin/alerts": "Alertas",
+  "/admin/users": "Usuarios",
+  "/doctor/dashboard": "Panel",
+  "/doctor/patients": "Pacientes",
+  "/doctor/treatments/new": "Nuevo tratamiento",
+  "/doctor/treatments/history": "Historial tratamientos",
+};
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -12,28 +26,8 @@ export const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  const navigationItems =
-    role === "admin"
-      ? [
-          { name: "Dashboard", href: "/admin/dashboard" },
-          { name: "Control", href: "/admin/control" },
-          { name: "Calibracion", href: "/admin/calibration" },
-          { name: "Historial", href: "/admin/history" },
-          { name: "Alertas", href: "/admin/alerts" },
-          { name: "Usuarios", href: "/admin/users" },
-        ]
-      : [
-          { name: "Panel", href: "/doctor/dashboard" },
-          { name: "Pacientes", href: "/doctor/patients" },
-          { name: "Nuevo tratamiento", href: "/doctor/treatments/new" },
-          {
-            name: "Historial tratamientos",
-            href: "/doctor/treatments/history",
-          },
-        ];
+  const [deviceOnline, setDeviceOnline] = useState<boolean | null>(null);
 
   const initials = useMemo(() => {
     const name = user?.fullname ?? "Usuario";
@@ -49,7 +43,9 @@ export const Header: React.FC = () => {
     navigate("/login");
   };
 
-  const isActive = (href: string) => location.pathname === href;
+  const currentPage = pageLabels[location.pathname] ?? "Panel";
+  const roleLabel = role === "admin" ? "Administrador" : "Medico";
+
   const sessionUptime = useMemo(() => {
     const hours = Math.floor(elapsedSeconds / 3600);
     const minutes = Math.floor((elapsedSeconds % 3600) / 60);
@@ -74,130 +70,102 @@ export const Header: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const loadStatus = () => {
+      axios
+        .get<{ online: boolean }>("/device/status")
+        .then((response) => mounted && setDeviceOnline(Boolean(response.data.online)))
+        .catch(() => mounted && setDeviceOnline(false));
+    };
+    loadStatus();
+    const timer = window.setInterval(loadStatus, 5000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
-      <div className="px-4 sm:px-6">
-        <div className="flex h-14 sm:h-16 items-center justify-between gap-4">
-          {/* Brand + mobile menu */}
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="sm:hidden"
-              onClick={() => setMobileNavOpen((v) => !v)}
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Abrir navegación</span>
-            </Button>
-
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                <Activity className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-sm sm:text-base font-semibold truncate">
-                    VasoFlow · Panel de compresión
-                  </h1>
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    <BadgeCheck className="h-3 w-3" />
-                    Dispositivo conectado
-                  </span>
-                </div>
-                <p className="hidden sm:block text-xs text-muted-foreground truncate">
-                  Sistema de control de banda neumática para extremidades
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs lg:text-sm font-medium transition-colors",
-                  isActive(item.href)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Right side: theme + user + logout */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              onClick={toggleTheme}
-            >
-              {theme === "light" ? (
-                <Moon className="h-4 w-4" />
-              ) : (
-                <Sun className="h-4 w-4" />
-              )}
-              <span className="sr-only">
-                {theme === "light"
-                  ? "Activar modo oscuro"
-                  : "Activar modo claro"}
-              </span>
-            </Button>
-
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="h-9 w-9 rounded-full bg-primary text-primary-foreground grid place-items-center">
-                <span className="text-sm font-semibold">{initials}</span>
-              </div>
-              <div className="hidden lg:flex flex-col leading-tight">
-                <span className="text-sm font-medium">
-                  {user?.fullname ?? "Usuario"}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Sesión activa · {sessionUptime}
-                </span>
-              </div>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 text-destructive"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="sr-only">Cerrar sesión</span>
-            </Button>
-          </div>
-        </div>
+    <header className="sticky top-0 z-15 flex h-[72px] items-center justify-between border-b border-border/60 bg-card/94 px-6 backdrop-blur-xl">
+      <div className="flex flex-col">
+        <p className="eyebrow text-muted-foreground">
+          Sebastian / {roleLabel}
+        </p>
+        <h1 className="text-lg font-bold tracking-tight text-foreground">
+          {currentPage}
+        </h1>
       </div>
 
-      {/* Mobile nav desplegable */}
-      {mobileNavOpen && (
-        <div className="border-t border-border bg-card md:hidden">
-          <nav className="px-3 py-2 flex flex-col gap-1">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setMobileNavOpen(false)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive(item.href)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-extrabold",
+            deviceOnline
+              ? "border-accent/30 bg-accent/10 text-accent"
+              : "border-destructive/30 bg-destructive/10 text-destructive",
+          )}
+        >
+          {deviceOnline ? (
+            <BadgeCheck className="h-3 w-3" />
+          ) : (
+            <WifiOff className="h-3 w-3" />
+          )}
+          {deviceOnline === null
+            ? "Verificando"
+            : deviceOnline
+              ? "Equipo conectado"
+              : "Sin conexion"}
+        </span>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0"
+          onClick={toggleTheme}
+        >
+          {theme === "light" ? (
+            <Moon className="h-4 w-4" />
+          ) : (
+            <Sun className="h-4 w-4" />
+          )}
+          <span className="sr-only">
+            {theme === "light"
+              ? "Activar modo oscuro"
+              : "Activar modo claro"}
+          </span>
+        </Button>
+
+        <div className="flex items-center gap-2.5">
+          <div className="hidden text-right lg:block">
+            <p className="text-sm font-semibold text-foreground">
+              {user?.fullname ?? "Usuario"}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Sesion {sessionUptime}
+            </p>
+          </div>
+          <div
+            className="grid h-10 w-10 place-items-center rounded-full text-sm font-extrabold text-white"
+            style={{
+              background: "#2c73a8",
+              boxShadow: "inset 0 0 0 3px oklch(0.90 0.02 250)",
+            }}
+          >
+            {initials}
+          </div>
         </div>
-      )}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0 text-destructive"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="sr-only">Cerrar sesion</span>
+        </Button>
+      </div>
     </header>
   );
 };

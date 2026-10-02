@@ -21,6 +21,16 @@ type Treatment = {
   startedAt: string;
   endedAt: string | null;
   durationSeconds?: number;
+  groups?: Array<{
+    groupId: number;
+    zone: string;
+    targetPressureKpa: number;
+    inflateTimeSeconds: number;
+    holdTimeSeconds: number;
+    releaseTimeSeconds: number;
+    cycleTarget: number;
+    cycleCount?: number;
+  }> | null;
 };
 
 export function DoctorTreatmentHistoryPage() {
@@ -35,8 +45,12 @@ export function DoctorTreatmentHistoryPage() {
   const filtered = useMemo(
     () =>
       items.filter((item) => {
-        const byStatus = statusFilter === "all" ? true : item.status === statusFilter;
-        const text = `${item.patientId} ${item.patientName ?? ""} ${item.intensity ?? ""} ${item.treatmentZone ?? ""} ${item.mobilityLevel ?? ""}`.toLowerCase();
+        const byStatus =
+          statusFilter === "all" ? true : item.status === statusFilter;
+        const groupZones =
+          item.groups?.map((group) => group.zone).join(" ") ?? "";
+        const text =
+          `${item.patientId} ${item.patientName ?? ""} ${item.intensity ?? ""} ${item.treatmentZone ?? ""} ${groupZones} ${item.mobilityLevel ?? ""}`.toLowerCase();
         return byStatus && text.includes(search.toLowerCase());
       }),
     [items, search, statusFilter],
@@ -59,6 +73,7 @@ export function DoctorTreatmentHistoryPage() {
       "durationSeconds",
       "startedAt",
       "endedAt",
+      "groups",
     ];
     const rows = filtered.map((item) => [
       item.id,
@@ -76,9 +91,12 @@ export function DoctorTreatmentHistoryPage() {
       String(item.durationSeconds ?? 0),
       item.startedAt,
       item.endedAt ?? "",
+      JSON.stringify(item.groups ?? []),
     ]);
     const csv = [header, ...rows]
-      .map((row) => row.map((col) => `"${String(col).replace(/"/g, '""')}"`).join(","))
+      .map((row) =>
+        row.map((col) => `"${String(col).replace(/"/g, '""')}"`).join(","),
+      )
       .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -92,7 +110,9 @@ export function DoctorTreatmentHistoryPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold tracking-tight">Registro de tratamientos</h2>
+      <h2 className="text-2xl font-semibold tracking-tight">
+        Registro de tratamientos
+      </h2>
       <Card>
         <CardHeader>
           <CardTitle>Historial</CardTitle>
@@ -124,7 +144,7 @@ export function DoctorTreatmentHistoryPage() {
                   <th className="px-3 py-2">Paciente</th>
                   <th className="px-3 py-2">Nombre</th>
                   <th className="px-3 py-2">Intensidad</th>
-                  <th className="px-3 py-2">Zona</th>
+                  <th className="px-3 py-2">Grupos</th>
                   <th className="px-3 py-2">Movilidad</th>
                   <th className="px-3 py-2">Config</th>
                   <th className="px-3 py-2">Estado</th>
@@ -139,17 +159,40 @@ export function DoctorTreatmentHistoryPage() {
                   <tr key={item.id} className="border-t">
                     <td className="px-3 py-2">{item.patientId}</td>
                     <td className="px-3 py-2">{item.patientName ?? "-"}</td>
-                    <td className="px-3 py-2 uppercase">{item.intensity ?? "-"}</td>
-                    <td className="px-3 py-2">{item.treatmentZone?.replace("_", " ") ?? "-"}</td>
-                    <td className="px-3 py-2">{item.mobilityLevel?.replace("_", " ") ?? "-"}</td>
+                    <td className="px-3 py-2 uppercase">
+                      {item.intensity ?? "-"}
+                    </td>
                     <td className="px-3 py-2">
-                      {item.targetPressureKpa ?? "-"} kPa / {item.holdTimeSeconds ?? "-"}s / {item.releaseTimeSeconds ?? "-"}s / {item.cycleTarget ?? "-"} ciclos
+                      {item.groups?.length
+                        ? item.groups
+                            .map((group) => `G${group.groupId}`)
+                            .join(", ")
+                        : (item.treatmentZone?.replaceAll("_", " ") ?? "-")}
+                    </td>
+                    <td className="px-3 py-2">
+                      {item.mobilityLevel?.replace("_", " ") ?? "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {item.groups?.length
+                        ? item.groups
+                            .map(
+                              (group) =>
+                                `G${group.groupId}: ${group.targetPressureKpa}kPa · ${group.inflateTimeSeconds}/${group.holdTimeSeconds}/${group.releaseTimeSeconds}s · ${group.cycleTarget}c`,
+                            )
+                            .join(" | ")
+                        : `${item.targetPressureKpa ?? "-"} kPa / ${item.holdTimeSeconds ?? "-"}s / ${item.releaseTimeSeconds ?? "-"}s / ${item.cycleTarget ?? "-"} ciclos`}
                     </td>
                     <td className="px-3 py-2">{item.status}</td>
                     <td className="px-3 py-2">{item.cycleCount}</td>
                     <td className="px-3 py-2">{item.durationSeconds ?? 0}s</td>
-                    <td className="px-3 py-2">{new Date(item.startedAt).toLocaleString()}</td>
-                    <td className="px-3 py-2">{item.endedAt ? new Date(item.endedAt).toLocaleString() : "-"}</td>
+                    <td className="px-3 py-2">
+                      {new Date(item.startedAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      {item.endedAt
+                        ? new Date(item.endedAt).toLocaleString()
+                        : "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
