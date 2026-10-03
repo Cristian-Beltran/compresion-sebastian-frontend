@@ -57,7 +57,12 @@ export default function LoginPage() {
     try {
       await login({ email: values.email, password: values.password });
       const role = useAuthStore.getState().type;
-      navigate(role === "admin" ? "/admin/dashboard" : "/doctor/dashboard");
+      const redirectMap: Record<string, string> = {
+        admin: "/admin/dashboard",
+        technical: "/technical/dashboard",
+        doctor: "/doctor/dashboard",
+      };
+      navigate(redirectMap[role ?? "doctor"] ?? "/doctor/dashboard");
     } catch {
       setServerError(
         "No pudimos validar sus credenciales. Verifique los datos e intente nuevamente.",

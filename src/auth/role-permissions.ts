@@ -1,15 +1,24 @@
-export type Role = "patient" | "family" | "doctor" | "admin";
+export type Role = "technical" | "doctor" | "admin";
 export type Permission =
   | "patients.read"
   | "patients.write"
   | "sessions.read"
   | "sessions.write"
   | "telemetry.read"
-  | "telemetry.write";
+  | "telemetry.write"
+  | "device.control"
+  | "calibration.write"
+  | "users.write"
+  | "logs.read";
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  patient: ["sessions.read"],
-  family: ["patients.read", "sessions.read"],
+  technical: [
+    "telemetry.read",
+    "telemetry.write",
+    "device.control",
+    "calibration.write",
+    "logs.read",
+  ],
   doctor: [
     "patients.read",
     "patients.write",
@@ -24,5 +33,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "sessions.write",
     "telemetry.read",
     "telemetry.write",
+    "device.control",
+    "calibration.write",
+    "users.write",
+    "logs.read",
   ],
 };

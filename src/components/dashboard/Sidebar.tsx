@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Gauge, History, LayoutGrid, Users, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, Gauge, History, LayoutGrid, Settings, Shield, Users, Wrench, FileText, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/auth/useAuth";
 import { Link, useLocation } from "react-router-dom";
@@ -10,26 +10,47 @@ type NavItem = {
 };
 
 const adminNav: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutGrid },
-  { label: "Control", href: "/admin/control", icon: Wrench },
-  { label: "Calibracion", href: "/admin/calibration", icon: Gauge },
-  { label: "Historial", href: "/admin/history", icon: History },
-  { label: "Alertas", href: "/admin/alerts", icon: AlertTriangle },
+  { label: "Panel administrativo", href: "/admin/dashboard", icon: LayoutGrid },
   { label: "Usuarios", href: "/admin/users", icon: Users },
+  { label: "Roles y permisos", href: "/admin/permissions", icon: Shield },
+  { label: "Registros", href: "/admin/logs", icon: FileText },
+  { label: "Reportes", href: "/admin/reports", icon: BarChart3 },
+  { label: "Configuración", href: "/admin/settings", icon: Settings },
+];
+
+const technicalNav: NavItem[] = [
+  { label: "Panel técnico", href: "/technical/dashboard", icon: LayoutGrid },
+  { label: "Control", href: "/technical/control", icon: Wrench },
+  { label: "Sensores", href: "/technical/sensors", icon: Activity },
+  { label: "Calibración", href: "/technical/calibration", icon: Gauge },
+  { label: "Alertas", href: "/technical/alerts", icon: AlertTriangle },
+  { label: "Historial técnico", href: "/technical/history", icon: History },
 ];
 
 const doctorNav: NavItem[] = [
-  { label: "Panel", href: "/doctor/dashboard", icon: LayoutGrid },
+  { label: "Panel principal", href: "/doctor/dashboard", icon: LayoutGrid },
   { label: "Pacientes", href: "/doctor/patients", icon: Users },
-  { label: "Nuevo tratamiento", href: "/doctor/treatments/new", icon: Activity },
+  { label: "Tratamientos", href: "/doctor/treatments/new", icon: Activity },
   { label: "Historial", href: "/doctor/treatments/history", icon: History },
 ];
+
+const navMap: Record<string, NavItem[]> = {
+  admin: adminNav,
+  technical: technicalNav,
+  doctor: doctorNav,
+};
+
+const roleLabels: Record<string, string> = {
+  admin: "Administración",
+  technical: "Supervisión técnica",
+  doctor: "Gestión clínica",
+};
 
 export function Sidebar() {
   const type = useAuthStore((state) => state.type);
   const location = useLocation();
-  const nav = type === "admin" ? adminNav : doctorNav;
-  const roleLabel = type === "admin" ? "Administrador" : "Medico";
+  const nav = navMap[type ?? "doctor"] ?? doctorNav;
+  const roleLabel = roleLabels[type ?? "doctor"] ?? "Usuario";
 
   return (
     <aside className="fixed left-0 top-0 z-20 flex h-screen w-[260px] flex-col bg-sidebar text-sidebar-foreground">
@@ -38,7 +59,7 @@ export function Sidebar() {
           <Activity className="h-5 w-5 text-primary-foreground" />
         </div>
         <div>
-          <p className="text-sm font-bold text-white">Sebastian</p>
+          <p className="text-sm font-bold text-white">VenoFlow</p>
           <p className="text-[11px] font-bold uppercase tracking-widest text-sidebar-foreground/60">
             {roleLabel}
           </p>
@@ -47,7 +68,7 @@ export function Sidebar() {
 
       <div className="px-4 pt-2 pb-3">
         <p className="px-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-sidebar-foreground/50">
-          Navegacion
+          Navegación
         </p>
       </div>
 
@@ -74,7 +95,7 @@ export function Sidebar() {
             <Activity className="h-4 w-4 text-accent" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-white">Equipo</p>
+            <p className="truncate text-xs font-semibold text-white">NC-THERAPY-01</p>
             <p className="truncate text-[11px] text-sidebar-foreground/60">esp32-01</p>
           </div>
         </div>

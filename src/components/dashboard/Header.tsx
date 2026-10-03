@@ -8,16 +8,22 @@ import { cn } from "@/lib/utils";
 import axios from "@/lib/axios";
 
 const pageLabels: Record<string, string> = {
-  "/admin/dashboard": "Dashboard",
-  "/admin/control": "Control",
-  "/admin/calibration": "Calibracion",
-  "/admin/history": "Historial",
-  "/admin/alerts": "Alertas",
+  "/admin/dashboard": "Panel administrativo",
   "/admin/users": "Usuarios",
-  "/doctor/dashboard": "Panel",
+  "/admin/permissions": "Roles y permisos",
+  "/admin/logs": "Registros",
+  "/admin/reports": "Reportes",
+  "/admin/settings": "Configuración",
+  "/technical/dashboard": "Panel técnico",
+  "/technical/control": "Control técnico",
+  "/technical/sensors": "Sensores",
+  "/technical/calibration": "Calibración",
+  "/technical/alerts": "Alertas",
+  "/technical/history": "Historial técnico",
+  "/doctor/dashboard": "Panel principal",
   "/doctor/patients": "Pacientes",
-  "/doctor/treatments/new": "Nuevo tratamiento",
-  "/doctor/treatments/history": "Historial tratamientos",
+  "/doctor/treatments/new": "Configuración de tratamiento",
+  "/doctor/treatments/history": "Historial médico",
 };
 
 export const Header: React.FC = () => {
@@ -44,7 +50,12 @@ export const Header: React.FC = () => {
   };
 
   const currentPage = pageLabels[location.pathname] ?? "Panel";
-  const roleLabel = role === "admin" ? "Administrador" : "Medico";
+  const roleLabelMap: Record<string, string> = {
+    admin: "Administrador",
+    technical: "Técnico Biomédico",
+    doctor: "Médico / Enfermería",
+  };
+  const roleLabel = roleLabelMap[role ?? "doctor"] ?? "Usuario";
 
   const sessionUptime = useMemo(() => {
     const hours = Math.floor(elapsedSeconds / 3600);
