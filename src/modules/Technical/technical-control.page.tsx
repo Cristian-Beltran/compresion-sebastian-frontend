@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  Fan,
   Gauge,
   Hand,
   Play,
@@ -29,6 +30,8 @@ export function TechnicalControlPage() {
   const [selectedGroup, setSelectedGroup] = useState(1);
   const [pulseMs, setPulseMs] = useState(500);
   const [pending, setPending] = useState<string | null>(null);
+  const [fanMode, setFanMode] = useState<"pid" | "manual">("pid");
+  const [fanSpeed, setFanSpeed] = useState(65);
   const leaseTimer = useRef<number | null>(null);
   const holding = useRef(false);
   const mqttOnline = useMqttStatus();
@@ -335,6 +338,108 @@ export function TechnicalControlPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-border/60">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-bold">
+            <Fan className="h-5 w-5 text-primary" />
+            Ventilación y PID
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Al salir de mantenimiento, el sistema regresa automáticamente al control PID.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-xl border border-border/60 p-4">
+            <div>
+              <p className="font-bold">Modo de control del ventilador</p>
+              <p className="text-xs text-muted-foreground">
+                {fanMode === "pid"
+                  ? "Control PID automático según temperatura"
+                  : "Control manual: el ventilador responde a tus instrucciones"}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={fanMode === "manual"}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                fanMode === "manual" ? "bg-primary" : "bg-muted"
+              }`}
+              disabled={!controlsEnabled}
+              onClick={async () => {
+                const newMode = fanMode === "pid" ? "manual" : "pid";
+                try {
+                  await axios.post("/device/fan/mode", { mode: newMode });
+                  setFanMode(newMode);
+                  toast.success(
+                    newMode === "manual"
+                      ? "Modo manual activado"
+                      : "Control PID automático restablecido"
+                  );
+                } catch {
+                  toast.error("Error al cambiar modo del ventilador");
+                }
+              }}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition ${
+                  fanMode === "manual" ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          {fanMode === "manual" && (
+            <div className="rounded-xl border border-border/60 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="font-bold">Velocidad del ventilador</p>
+                  <p className="text-xs text-muted-foreground">
+                    Ajusta la potencia manualmente (20% - 100%)
+                  </p>
+                </div>
+                <span className="font-mono text-lg font-bold">{fanSpeed}%</span>
+              </div>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                value={fanSpeed}
+                onChange={(e) => setFanSpeed(Number(e.target.value))}
+                className="mb-3 w-full"
+                disabled={!controlsEnabled}
+              />
+              <Button
+                className="btn-biomed w-full bg-primary text-white"
+                disabled={!controlsEnabled}
+                onClick={async () => {
+                  try {
+                    await axios.post("/device/fan/speed", { percent: fanSpeed });
+                    toast.success(`Velocidad del ventilador ajustada a ${fanSpeed}%`);
+                  } catch {
+                    toast.error("Error al ajustar velocidad del ventilador");
+                  }
+                }}
+              >
+                Aplicar velocidad
+              </Button>
+            </div>
+          )}
+
+          {fanMode === "pid" && (
+            <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
+              <p>
+                <strong>Estado PID:</strong> Activo · Salida de control:{" "}
+                {Number(status?.fanPowerPercent ?? 0).toFixed(0)}%
+              </p>
+              <p className="mt-1 text-xs">
+                Temperatura objetivo regulada automáticamente por el controlador PID.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

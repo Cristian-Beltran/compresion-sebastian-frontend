@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, Gauge, Thermometer, Users, Zap } from "lucide-react";
+import { Activity, Gauge, Users, Zap } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 
@@ -64,7 +64,6 @@ export function DoctorDashboardPage() {
 
   const primaryPressure = live?.status?.pressureKpa ?? 0;
   const primaryForce = live?.status?.forceNewtons ?? 0;
-  const primaryTemp = live?.status?.temperatureC ?? 0;
 
   return (
     <div className="space-y-6">
@@ -78,7 +77,7 @@ export function DoctorDashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border/60">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold text-muted-foreground">
@@ -97,13 +96,6 @@ export function DoctorDashboardPage() {
           accentColor="primary"
         />
         <MetricCard
-          label="Temperatura"
-          value={Number(primaryTemp).toFixed(1)}
-          unit="°C"
-          icon={<Thermometer className="h-5 w-5" />}
-          accentColor="accent"
-        />
-        <MetricCard
           label="Fuerza"
           value={Number(primaryForce).toFixed(1)}
           unit="N"
@@ -118,80 +110,42 @@ export function DoctorDashboardPage() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-border/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold">
-              Presion en tiempo real
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <XAxis dataKey="idx" hide />
-                <YAxis
-                  unit=" kPa"
-                  width={55}
-                  tick={{ fontSize: 11, fill: "#627184" }}
-                  axisLine={{ stroke: "#dbe3ec" }}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "#fff",
-                    border: "1px solid #dbe3ec",
-                    borderRadius: "10px",
-                    fontSize: "12px",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="pressure"
-                  stroke="#1673c8"
-                  strokeWidth={2.5}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        <Card className="border-border/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold">
-              Temperatura en tiempo real
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
-                <XAxis dataKey="idx" hide />
-                <YAxis
-                  unit=" °C"
-                  width={55}
-                  tick={{ fontSize: 11, fill: "#627184" }}
-                  axisLine={{ stroke: "#dbe3ec" }}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "#fff",
-                    border: "1px solid #dbe3ec",
-                    borderRadius: "10px",
-                    fontSize: "12px",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="temp"
-                  stroke="#14a37f"
-                  strokeWidth={2.5}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-bold">
+            Presion en tiempo real
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={history}>
+              <XAxis dataKey="idx" hide />
+              <YAxis
+                unit=" kPa"
+                width={55}
+                tick={{ fontSize: 11, fill: "#627184" }}
+                axisLine={{ stroke: "#dbe3ec" }}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#fff",
+                  border: "1px solid #dbe3ec",
+                  borderRadius: "10px",
+                  fontSize: "12px",
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="pressure"
+                stroke="#1673c8"
+                strokeWidth={2.5}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-border/60">

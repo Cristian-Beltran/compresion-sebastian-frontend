@@ -26,6 +26,15 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import axios from "@/lib/axios";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
@@ -207,6 +216,10 @@ export function DoctorTreatmentNewPage() {
   const [activeTreatment, setActiveTreatment] =
     useState<ActiveTreatment | null>(null);
   const [starting, setStarting] = useState(false);
+  const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [medicalReport, setMedicalReport] = useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
@@ -261,6 +274,15 @@ export function DoctorTreatmentNewPage() {
     window.addEventListener("mousedown", close);
     return () => window.removeEventListener("mousedown", close);
   }, []);
+
+  const prevTreatmentRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentId = activeTreatment?.id ?? null;
+    if (prevTreatmentRef.current && !currentId) {
+      setCompletedOpen(true);
+    }
+    prevTreatmentRef.current = currentId;
+  }, [activeTreatment]);
 
   const selectedEntries = useMemo(
     () =>
@@ -396,11 +418,18 @@ export function DoctorTreatmentNewPage() {
     }
   };
 
-  const stop = async () => {
+  const stop = async (medicalReportText?: string, interrupted = false) => {
     if (!activeTreatment) return;
     try {
-      await axios.post("/doctor/treatments/" + activeTreatment.id + "/stop");
-      toast.success("Orden de detención enviada");
+      await axios.post("/doctor/treatments/" + activeTreatment.id + "/stop", {
+        medicalReport: medicalReportText,
+        interrupted,
+      });
+      toast.success(interrupted ? "Sesión interrumpida y guardada" : "Sesión completada y guardada");
+      setStopConfirmOpen(false);
+      setCompletedOpen(false);
+      setReportOpen(false);
+      setMedicalReport("");
       await load();
     } catch {
       toast.error("No se pudo detener la sesión");
@@ -618,7 +647,7 @@ export function DoctorTreatmentNewPage() {
                 <Button
                   className="h-12 w-full font-extrabold"
                   variant="destructive"
-                  onClick={() => void stop()}
+                  onClick={() => setStopConfirmOpen(true)}
                 >
                   <Square className="h-4 w-4" />
                   DETENER TRATAMIENTO
@@ -776,6 +805,27 @@ export function DoctorTreatmentNewPage() {
                         </b>
                       </span>
                     </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Progreso</span>
+                        <span className="font-medium">
+                          {group.cycleTarget > 0
+                            ? Math.min(100, Math.round((group.cycleIndex / group.cycleTarget) * 100))
+                            : 0}%
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full rounded-full transition-all"
+                          style={{
+                            width: group.cycleTarget > 0
+                              ? `${Math.min(100, (group.cycleIndex / group.cycleTarget) * 100)}%`
+                              : "0%",
+                            background: GROUP_COLORS[group.groupId - 1],
+                          }}
+                        />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -831,6 +881,97 @@ export function DoctorTreatmentNewPage() {
           }}
         />
       )}
+
+      <Dialog open={stopConfirmOpen} onOpenChange={setStopConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detener tratamiento</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro de detener definitivamente la terapia? La sesión se guardará automáticamente como interrumpida.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStopConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => stop(undefined, true)}>
+              Sí, detener
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={completedOpen} onOpenChange={setCompletedOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sesión finalizada</DialogTitle>
+            <DialogDescription>
+              La terapia ha terminado. Seleccione cómo desea guardar la sesión.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                stop(undefined, false);
+              }}
+            >
+              Guardar sin reporte
+            </Button>
+            <Button
+              className="w-full"
+              onClick={() => {
+                setCompletedOpen(false);
+                setReportOpen(true);
+              }}
+            >
+              Guardar con reporte
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Guardar con reporte</DialogTitle>
+            <DialogDescription>
+              Añada las observaciones clínicas de esta sesión.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label>Registro médico</Label>
+              <textarea
+                className="flex min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={medicalReport}
+                onChange={(e) => setMedicalReport(e.target.value)}
+                placeholder="Ejemplo: La terapia transcurrió sin complicaciones. El paciente toleró correctamente la presión aplicada..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Describa la evolución, tolerancia o cualquier incidencia relevante.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReportOpen(false); setCompletedOpen(true); }}>
+              Volver
+            </Button>
+            <Button
+              onClick={() => {
+                if (!medicalReport.trim()) {
+                  toast.error("Escriba el registro médico antes de guardar");
+                  return;
+                }
+                stop(medicalReport, false);
+              }}
+            >
+              Guardar terapia y reporte
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

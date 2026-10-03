@@ -2,40 +2,103 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import axios from "@/lib/axios";
+import { toast } from "sonner";
+import { Eye, EyeOff, Plus, Search } from "lucide-react";
 
 type UserRow = {
   id: string;
   fullname: string;
   email: string;
-  type: "admin" | "doctor";
+  type: "admin" | "doctor" | "technical";
   status: "ACTIVE" | "INACTIVE" | "DELETED";
+  createdAt?: string;
 };
+
+const roleLabels: Record<string, string> = {
+  admin: "Administrador",
+  doctor: "Médico / Enfermería",
+  technical: "Técnico Biomédico",
+};
+
+function PasswordInput({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="pr-10"
+        />
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          onClick={() => setShow(!show)}
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "doctor">("all");
-  const [selected, setSelected] = useState<UserRow | null>(null);
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "doctor" | "technical">("all");
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     fullname: "",
     email: "",
     password: "",
-    role: "doctor",
+    role: "doctor" as "admin" | "doctor" | "technical",
   });
 
-  const [editForm, setEditForm] = useState({ fullname: "", email: "" });
-  const [password, setPassword] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [editForm, setEditForm] = useState({ fullname: "", email: "", role: "doctor" as string });
+
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusUser, setStatusUser] = useState<UserRow | null>(null);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [statusError, setStatusError] = useState("");
 
   const load = async () => {
     const res = await axios.get("/admin/users");
     setUsers(res.data);
-    if (selected) {
-      const fresh = res.data.find((x: UserRow) => x.id === selected.id) ?? null;
-      setSelected(fresh);
-      if (fresh) setEditForm({ fullname: fresh.fullname, email: fresh.email });
-    }
   };
 
   useEffect(() => {
@@ -50,182 +113,408 @@ export function AdminUsersPage() {
     });
   }, [users, search, roleFilter]);
 
-  const selectUser = (user: UserRow) => {
-    setSelected(user);
-    setEditForm({ fullname: user.fullname, email: user.email });
-    setPassword("");
+  const handleCreate = async () => {
+    if (!createForm.fullname || !createForm.email || !createForm.password) {
+      toast.error("Complete todos los campos obligatorios");
+      return;
+    }
+    try {
+      await axios.post("/admin/users", {
+        fullname: createForm.fullname,
+        email: createForm.email,
+        password: createForm.password,
+        role: createForm.role,
+      });
+      toast.success("Usuario creado correctamente");
+      setCreateOpen(false);
+      setCreateForm({ fullname: "", email: "", password: "", role: "doctor" });
+      await load();
+    } catch {
+      toast.error("Error al crear usuario");
+    }
   };
 
-  const createUser = async () => {
-    await axios.post("/admin/users", createForm);
-    setCreateForm({ fullname: "", email: "", password: "", role: "doctor" });
-    await load();
+  const openEdit = (user: UserRow) => {
+    setEditUser(user);
+    setEditForm({ fullname: user.fullname, email: user.email, role: user.type });
+    setEditOpen(true);
   };
 
-  const saveProfile = async () => {
-    if (!selected) return;
-    await axios.put(`/admin/users/${selected.id}`, editForm);
-    await load();
+  const handleEdit = async () => {
+    if (!editUser) return;
+    try {
+      await axios.put(`/admin/users/${editUser.id}`, {
+        fullname: editForm.fullname,
+        email: editForm.email,
+      });
+      toast.success("Usuario actualizado");
+      setEditOpen(false);
+      await load();
+    } catch {
+      toast.error("Error al actualizar usuario");
+    }
   };
 
-  const savePassword = async () => {
-    if (!selected || !password) return;
-    await axios.patch(`/admin/users/${selected.id}/password`, { password });
-    setPassword("");
+  const openReset = (user: UserRow) => {
+    setResetUser(user);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetError("");
+    setResetOpen(true);
   };
 
-  const toggleStatus = async () => {
-    if (!selected) return;
-    await axios.patch(`/admin/users/${selected.id}/status`, {
-      status: selected.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-    });
-    await load();
+  const handleReset = () => {
+    setResetError("");
+    if (newPassword.length < 8) {
+      setResetError("La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError("Las contraseñas no coinciden");
+      return;
+    }
+    handleResetConfirm();
+  };
+
+  const handleResetConfirm = async () => {
+    if (!resetUser) return;
+    try {
+      await axios.patch(`/admin/users/${resetUser.id}/password`, { password: newPassword });
+      toast.success("Contraseña restablecida correctamente");
+      setResetOpen(false);
+    } catch {
+      toast.error("Error al restablecer contraseña");
+    }
+  };
+
+  const openStatus = (user: UserRow) => {
+    setStatusUser(user);
+    setAdminPassword("");
+    setStatusError("");
+    setStatusOpen(true);
+  };
+
+  const handleStatus = async () => {
+    if (!statusUser) return;
+    setStatusError("");
+    if (!adminPassword) {
+      setStatusError("Ingrese su contraseña de administrador");
+      return;
+    }
+    try {
+      const loginRes = await axios.post("/auth/login", {
+        email: "admin@sebastian.local",
+        password: adminPassword,
+      });
+      if (loginRes.data.user.type !== "admin") {
+        setStatusError("Contraseña incorrecta");
+        return;
+      }
+      await axios.patch(`/admin/users/${statusUser.id}/status`, {
+        status: statusUser.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+      });
+      toast.success(
+        `${statusUser.fullname} fue ${statusUser.status === "ACTIVE" ? "desactivado" : "activado"} correctamente`
+      );
+      setStatusOpen(false);
+      await load();
+    } catch {
+      setStatusError("Contraseña de administrador incorrecta");
+    }
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold tracking-tight">Gestion de usuarios</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="eyebrow text-primary">Gestión de accesos</p>
+          <h2 className="mt-1 text-3xl font-bold tracking-tight">Usuarios</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Cree cuentas, asigne perfiles y administre el estado de acceso.
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Crear usuario
+        </Button>
+      </div>
 
-      <Card className="border-cyan-200/30 bg-gradient-to-br from-card to-card/70">
+      <Card>
         <CardHeader>
-          <CardTitle>Crear usuario</CardTitle>
+          <CardTitle>Listado de usuarios</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
-          <Input
-            placeholder="Nombre completo"
-            value={createForm.fullname}
-            onChange={(e) => setCreateForm((p) => ({ ...p, fullname: e.target.value }))}
-          />
-          <Input
-            placeholder="Correo"
-            value={createForm.email}
-            onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))}
-          />
-          <Input
-            placeholder="Contrasena"
-            type="password"
-            value={createForm.password}
-            onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-          />
-          <div className="flex gap-2">
+        <CardContent className="space-y-4">
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre, usuario o rol"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
             <select
-              className="h-10 w-full rounded-md border bg-background px-3"
-              value={createForm.role}
-              onChange={(e) => setCreateForm((p) => ({ ...p, role: e.target.value }))}
+              className="h-10 w-48 rounded-md border bg-background px-3"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
             >
-              <option value="doctor">Doctor</option>
-              <option value="admin">Admin</option>
+              <option value="all">Todos los roles</option>
+              <option value="admin">Administrador</option>
+              <option value="doctor">Médico / Enfermería</option>
+              <option value="technical">Técnico Biomédico</option>
             </select>
-            <Button onClick={() => void createUser()}>Crear</Button>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-left">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Nombre</th>
+                  <th className="px-4 py-3 font-semibold">Usuario</th>
+                  <th className="px-4 py-3 font-semibold">Rol</th>
+                  <th className="px-4 py-3 font-semibold">Estado</th>
+                  <th className="px-4 py-3 font-semibold">Registro</th>
+                  <th className="px-4 py-3 font-semibold">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((user) => (
+                  <tr key={user.id} className="border-t hover:bg-muted/20">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {user.fullname.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="font-medium">{user.fullname}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
+                    <td className="px-4 py-3">{roleLabels[user.type] ?? user.type}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          user.status === "ACTIVE"
+                            ? "bg-emerald-500/10 text-emerald-600"
+                            : "bg-amber-500/10 text-amber-600"
+                        }`}
+                      >
+                        {user.status === "ACTIVE" ? "Activo" : "Inactivo"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEdit(user)}>
+                          Editar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openReset(user)}>
+                          Contraseña
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={user.status === "ACTIVE" ? "destructive" : "outline"}
+                          onClick={() => openStatus(user)}
+                        >
+                          {user.status === "ACTIVE" ? "Desactivar" : "Activar"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                      No se encontraron usuarios
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Listado de usuarios</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-2 md:grid-cols-3">
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear usuario</DialogTitle>
+            <DialogDescription>
+              Asigne el perfil de acceso correspondiente a sus funciones.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Nombre completo</Label>
               <Input
-                placeholder="Buscar por nombre o correo"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={createForm.fullname}
+                onChange={(e) => setCreateForm({ ...createForm, fullname: e.target.value })}
+                placeholder="Ej: Dr. Juan Pérez"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Correo electrónico</Label>
+              <Input
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                placeholder="usuario@sebastian.local"
+              />
+            </div>
+            <PasswordInput
+              id="create-password"
+              label="Contraseña temporal"
+              value={createForm.password}
+              onChange={(v) => setCreateForm({ ...createForm, password: v })}
+              placeholder="Mínimo 8 caracteres"
+            />
+            <div className="space-y-1.5">
+              <Label>Rol</Label>
               <select
-                className="h-10 rounded-md border bg-background px-3"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as any)}
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={createForm.role}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, role: e.target.value as "admin" | "doctor" | "technical" })
+                }
               >
-                <option value="all">Todos</option>
-                <option value="admin">Admin</option>
-                <option value="doctor">Doctor</option>
+                <option value="doctor">Médico / Enfermería</option>
+                <option value="technical">Técnico Biomédico</option>
+                <option value="admin">Administrador</option>
               </select>
-              <div className="text-sm text-muted-foreground flex items-center">{filtered.length} usuarios</div>
             </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreate}>Crear usuario</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-left">
-                  <tr>
-                    <th className="px-3 py-2">Nombre</th>
-                    <th className="px-3 py-2">Correo</th>
-                    <th className="px-3 py-2">Rol</th>
-                    <th className="px-3 py-2">Estado</th>
-                    <th className="px-3 py-2">Accion</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((user) => (
-                    <tr key={user.id} className="border-t border-border hover:bg-muted/20">
-                      <td className="px-3 py-2">{user.fullname}</td>
-                      <td className="px-3 py-2">{user.email}</td>
-                      <td className="px-3 py-2 uppercase">{user.type}</td>
-                      <td className="px-3 py-2">
-                        <span className={user.status === "ACTIVE" ? "text-emerald-500" : "text-amber-500"}>
-                          {user.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Button size="sm" variant="outline" onClick={() => selectUser(user)}>
-                          Gestionar
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar usuario</DialogTitle>
+            <DialogDescription>
+              Actualice los datos del usuario.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Nombre completo</Label>
+              <Input
+                value={editForm.fullname}
+                onChange={(e) => setEditForm({ ...editForm, fullname: e.target.value })}
+              />
             </div>
-          </CardContent>
-        </Card>
+            <div className="space-y-1.5">
+              <Label>Correo electrónico</Label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Rol</Label>
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3"
+                value={editForm.role}
+                disabled
+              >
+                <option value="doctor">Médico / Enfermería</option>
+                <option value="technical">Técnico Biomédico</option>
+                <option value="admin">Administrador</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                El rol no se puede cambiar después de la creación.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEdit}>Guardar cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Edicion y seguridad</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!selected && <p className="text-sm text-muted-foreground">Selecciona un usuario para editarlo.</p>}
-            {selected && (
-              <>
-                <p className="text-sm font-medium">{selected.fullname}</p>
-                <Input
-                  placeholder="Nombre"
-                  value={editForm.fullname}
-                  onChange={(e) => setEditForm((p) => ({ ...p, fullname: e.target.value }))}
-                />
-                <Input
-                  placeholder="Correo"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
-                />
-                <Button className="w-full" onClick={() => void saveProfile()}>
-                  Guardar cambios
-                </Button>
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restablecer contraseña</DialogTitle>
+            <DialogDescription>
+              {resetUser?.fullname} · {resetUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <PasswordInput
+              id="new-password"
+              label="Nueva contraseña"
+              value={newPassword}
+              onChange={setNewPassword}
+              placeholder="Mínimo 8 caracteres"
+            />
+            <PasswordInput
+              id="confirm-password"
+              label="Confirmar contraseña"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Repita la contraseña"
+            />
+            {resetError && <p className="text-sm text-destructive">{resetError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleReset}>Guardar contraseña</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                <div className="border-t border-border pt-3 space-y-2">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Cambiar contrasena</p>
-                  <Input
-                    type="password"
-                    placeholder="Nueva contrasena"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <Button variant="outline" className="w-full" onClick={() => void savePassword()}>
-                    Actualizar contrasena
-                  </Button>
-                </div>
-
-                <div className="border-t border-border pt-3">
-                  <Button variant="destructive" className="w-full" onClick={() => void toggleStatus()}>
-                    {selected.status === "ACTIVE" ? "Inactivar usuario" : "Activar usuario"}
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {statusUser?.status === "ACTIVE" ? "Desactivar" : "Activar"} usuario
+            </DialogTitle>
+            <DialogDescription>
+              Confirme la acción para la cuenta {statusUser?.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              {statusUser?.status === "ACTIVE"
+                ? `${statusUser?.fullname} no podrá iniciar sesión mientras permanezca desactivado.`
+                : `${statusUser?.fullname} recuperará inmediatamente el acceso al sistema.`}
+            </div>
+            <PasswordInput
+              id="admin-password"
+              label="Contraseña del administrador"
+              value={adminPassword}
+              onChange={setAdminPassword}
+              placeholder="Ingrese su contraseña para confirmar"
+            />
+            {statusError && <p className="text-sm text-destructive">{statusError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant={statusUser?.status === "ACTIVE" ? "destructive" : "default"}
+              onClick={handleStatus}
+            >
+              {statusUser?.status === "ACTIVE" ? "Sí, desactivar" : "Sí, activar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
