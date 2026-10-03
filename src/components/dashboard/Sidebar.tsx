@@ -20,8 +20,7 @@ const adminNav: NavItem[] = [
 
 const technicalNav: NavItem[] = [
   { label: "Panel técnico", href: "/technical/dashboard", icon: LayoutGrid },
-  { label: "Control", href: "/technical/control", icon: Wrench },
-  { label: "Sensores", href: "/technical/sensors", icon: Activity },
+  { label: "Sensores y control", href: "/technical/sensors", icon: Wrench },
   { label: "Calibración", href: "/technical/calibration", icon: Gauge },
   { label: "Alertas", href: "/technical/alerts", icon: AlertTriangle },
   { label: "Historial técnico", href: "/technical/history", icon: History },

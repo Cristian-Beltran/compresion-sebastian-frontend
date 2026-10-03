@@ -11,7 +11,6 @@ import { AdminLogsPage } from "./modules/Admin/admin-logs.page";
 import { AdminReportsPage } from "./modules/Admin/admin-reports.page";
 import { AdminSettingsPage } from "./modules/Admin/admin-settings.page";
 import { TechnicalDashboardPage } from "./modules/Technical/technical-dashboard.page";
-import { TechnicalControlPage } from "./modules/Technical/technical-control.page";
 import { TechnicalSensorsPage } from "./modules/Technical/technical-sensors.page";
 import { TechnicalCalibrationPage } from "./modules/Technical/technical-calibration.page";
 import { TechnicalAlertsPage } from "./modules/Technical/technical-alerts.page";
@@ -39,7 +38,6 @@ export const router = createBrowserRouter([
       { path: "admin/reports", element: <AdminReportsPage /> },
       { path: "admin/settings", element: <AdminSettingsPage /> },
       { path: "technical/dashboard", element: <TechnicalDashboardPage /> },
-      { path: "technical/control", element: <TechnicalControlPage /> },
       { path: "technical/sensors", element: <TechnicalSensorsPage /> },
       { path: "technical/calibration", element: <TechnicalCalibrationPage /> },
       { path: "technical/alerts", element: <TechnicalAlertsPage /> },

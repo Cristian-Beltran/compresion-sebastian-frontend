@@ -55,6 +55,7 @@ function PasswordInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className="pr-10"
+          autoComplete="new-password"
         />
         <button
           type="button"
@@ -74,6 +75,7 @@ export function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "doctor" | "technical">("all");
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     fullname: "",
     email: "",
@@ -82,10 +84,12 @@ export function AdminUsersPage() {
   });
 
   const [editOpen, setEditOpen] = useState(false);
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editForm, setEditForm] = useState({ fullname: "", email: "", role: "doctor" as string });
 
   const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -118,6 +122,10 @@ export function AdminUsersPage() {
       toast.error("Complete todos los campos obligatorios");
       return;
     }
+    setCreateConfirmOpen(true);
+  };
+
+  const confirmCreate = async () => {
     try {
       await axios.post("/admin/users", {
         fullname: createForm.fullname,
@@ -126,6 +134,7 @@ export function AdminUsersPage() {
         role: createForm.role,
       });
       toast.success("Usuario creado correctamente");
+      setCreateConfirmOpen(false);
       setCreateOpen(false);
       setCreateForm({ fullname: "", email: "", password: "", role: "doctor" });
       await load();
@@ -140,7 +149,12 @@ export function AdminUsersPage() {
     setEditOpen(true);
   };
 
-  const handleEdit = async () => {
+  const handleEdit = () => {
+    if (!editUser) return;
+    setEditConfirmOpen(true);
+  };
+
+  const confirmEdit = async () => {
     if (!editUser) return;
     try {
       await axios.put(`/admin/users/${editUser.id}`, {
@@ -148,6 +162,7 @@ export function AdminUsersPage() {
         email: editForm.email,
       });
       toast.success("Usuario actualizado");
+      setEditConfirmOpen(false);
       setEditOpen(false);
       await load();
     } catch {
@@ -173,14 +188,15 @@ export function AdminUsersPage() {
       setResetError("Las contraseñas no coinciden");
       return;
     }
-    handleResetConfirm();
+    setResetConfirmOpen(true);
   };
 
-  const handleResetConfirm = async () => {
+  const confirmReset = async () => {
     if (!resetUser) return;
     try {
       await axios.patch(`/admin/users/${resetUser.id}/password`, { password: newPassword });
       toast.success("Contraseña restablecida correctamente");
+      setResetConfirmOpen(false);
       setResetOpen(false);
     } catch {
       toast.error("Error al restablecer contraseña");
@@ -202,11 +218,10 @@ export function AdminUsersPage() {
       return;
     }
     try {
-      const loginRes = await axios.post("/auth/login", {
-        email: "admin@sebastian.local",
+      const verifyRes = await axios.post("/admin/users/verify-password", {
         password: adminPassword,
       });
-      if (loginRes.data.user.type !== "admin") {
+      if (!verifyRes.data.valid) {
         setStatusError("Contraseña incorrecta");
         return;
       }
@@ -252,6 +267,7 @@ export function AdminUsersPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
+                autoComplete="off"
               />
             </div>
             <select
@@ -345,51 +361,72 @@ export function AdminUsersPage() {
               Asigne el perfil de acceso correspondiente a sus funciones.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Nombre completo</Label>
-              <Input
-                value={createForm.fullname}
-                onChange={(e) => setCreateForm({ ...createForm, fullname: e.target.value })}
-                placeholder="Ej: Dr. Juan Pérez"
+          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); handleCreate(); }}>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Nombre completo</Label>
+                <Input
+                  value={createForm.fullname}
+                  onChange={(e) => setCreateForm({ ...createForm, fullname: e.target.value })}
+                  placeholder="Ej: Dr. Juan Pérez"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Correo electrónico</Label>
+                <Input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  placeholder="usuario@sebastian.local"
+                  autoComplete="off"
+                />
+              </div>
+              <PasswordInput
+                id="create-password"
+                label="Contraseña temporal"
+                value={createForm.password}
+                onChange={(v) => setCreateForm({ ...createForm, password: v })}
+                placeholder="Mínimo 8 caracteres"
               />
+              <div className="space-y-1.5">
+                <Label>Rol</Label>
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3"
+                  value={createForm.role}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, role: e.target.value as "admin" | "doctor" | "technical" })
+                  }
+                >
+                  <option value="doctor">Médico / Enfermería</option>
+                  <option value="technical">Técnico Biomédico</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Correo electrónico</Label>
-              <Input
-                type="email"
-                value={createForm.email}
-                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                placeholder="usuario@sebastian.local"
-              />
-            </div>
-            <PasswordInput
-              id="create-password"
-              label="Contraseña temporal"
-              value={createForm.password}
-              onChange={(v) => setCreateForm({ ...createForm, password: v })}
-              placeholder="Mínimo 8 caracteres"
-            />
-            <div className="space-y-1.5">
-              <Label>Rol</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3"
-                value={createForm.role}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, role: e.target.value as "admin" | "doctor" | "technical" })
-                }
-              >
-                <option value="doctor">Médico / Enfermería</option>
-                <option value="technical">Técnico Biomédico</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-          </div>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Crear usuario</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar creación</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro de crear el usuario {createForm.fullname} con rol {roleLabels[createForm.role]}?
+            </DialogDescription>
+          </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+            <Button variant="outline" onClick={() => setCreateConfirmOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreate}>Crear usuario</Button>
+            <Button onClick={confirmCreate}>Sí, crear</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -402,43 +439,64 @@ export function AdminUsersPage() {
               Actualice los datos del usuario.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Nombre completo</Label>
-              <Input
-                value={editForm.fullname}
-                onChange={(e) => setEditForm({ ...editForm, fullname: e.target.value })}
-              />
+          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); handleEdit(); }}>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Nombre completo</Label>
+                <Input
+                  value={editForm.fullname}
+                  onChange={(e) => setEditForm({ ...editForm, fullname: e.target.value })}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Correo electrónico</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Rol</Label>
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3"
+                  value={editForm.role}
+                  disabled
+                >
+                  <option value="doctor">Médico / Enfermería</option>
+                  <option value="technical">Técnico Biomédico</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  El rol no se puede cambiar después de la creación.
+                </p>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Correo electrónico</Label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Rol</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3"
-                value={editForm.role}
-                disabled
-              >
-                <option value="doctor">Médico / Enfermería</option>
-                <option value="technical">Técnico Biomédico</option>
-                <option value="admin">Administrador</option>
-              </select>
-              <p className="text-xs text-muted-foreground">
-                El rol no se puede cambiar después de la creación.
-              </p>
-            </div>
-          </div>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar cambios</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editConfirmOpen} onOpenChange={setEditConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar edición</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro de guardar los cambios para {editForm.fullname}?
+            </DialogDescription>
+          </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
+            <Button variant="outline" onClick={() => setEditConfirmOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleEdit}>Guardar cambios</Button>
+            <Button onClick={confirmEdit}>Sí, guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -451,28 +509,47 @@ export function AdminUsersPage() {
               {resetUser?.fullname} · {resetUser?.email}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <PasswordInput
-              id="new-password"
-              label="Nueva contraseña"
-              value={newPassword}
-              onChange={setNewPassword}
-              placeholder="Mínimo 8 caracteres"
-            />
-            <PasswordInput
-              id="confirm-password"
-              label="Confirmar contraseña"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder="Repita la contraseña"
-            />
-            {resetError && <p className="text-sm text-destructive">{resetError}</p>}
-          </div>
+          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); handleReset(); }}>
+            <div className="space-y-4">
+              <PasswordInput
+                id="new-password"
+                label="Nueva contraseña"
+                value={newPassword}
+                onChange={setNewPassword}
+                placeholder="Mínimo 8 caracteres"
+              />
+              <PasswordInput
+                id="confirm-password"
+                label="Confirmar contraseña"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="Repita la contraseña"
+              />
+              {resetError && <p className="text-sm text-destructive">{resetError}</p>}
+            </div>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setResetOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar contraseña</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar restablecimiento</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro de restablecer la contraseña de {resetUser?.fullname}?
+            </DialogDescription>
+          </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetOpen(false)}>
+            <Button variant="outline" onClick={() => setResetConfirmOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleReset}>Guardar contraseña</Button>
+            <Button onClick={confirmReset}>Sí, restablecer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -487,32 +564,34 @@ export function AdminUsersPage() {
               Confirme la acción para la cuenta {statusUser?.email}.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-lg bg-muted p-3 text-sm">
-              {statusUser?.status === "ACTIVE"
-                ? `${statusUser?.fullname} no podrá iniciar sesión mientras permanezca desactivado.`
-                : `${statusUser?.fullname} recuperará inmediatamente el acceso al sistema.`}
+          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); handleStatus(); }}>
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted p-3 text-sm">
+                {statusUser?.status === "ACTIVE"
+                  ? `${statusUser?.fullname} no podrá iniciar sesión mientras permanezca desactivado.`
+                  : `${statusUser?.fullname} recuperará inmediatamente el acceso al sistema.`}
+              </div>
+              <PasswordInput
+                id="admin-password"
+                label="Contraseña del administrador"
+                value={adminPassword}
+                onChange={setAdminPassword}
+                placeholder="Ingrese su contraseña para confirmar"
+              />
+              {statusError && <p className="text-sm text-destructive">{statusError}</p>}
             </div>
-            <PasswordInput
-              id="admin-password"
-              label="Contraseña del administrador"
-              value={adminPassword}
-              onChange={setAdminPassword}
-              placeholder="Ingrese su contraseña para confirmar"
-            />
-            {statusError && <p className="text-sm text-destructive">{statusError}</p>}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              variant={statusUser?.status === "ACTIVE" ? "destructive" : "default"}
-              onClick={handleStatus}
-            >
-              {statusUser?.status === "ACTIVE" ? "Sí, desactivar" : "Sí, activar"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setStatusOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant={statusUser?.status === "ACTIVE" ? "destructive" : "default"}
+              >
+                {statusUser?.status === "ACTIVE" ? "Sí, desactivar" : "Sí, activar"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
