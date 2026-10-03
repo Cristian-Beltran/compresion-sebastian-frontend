@@ -22,18 +22,25 @@ instance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      Cookies.remove("auth_token");
-      Cookies.remove("auth_type");
-      Cookies.remove("auth_user");
-
-      const currentPath = window.location.pathname;
-      const isProtectedRoute = 
-        currentPath.startsWith("/admin") ||
-        currentPath.startsWith("/doctor") ||
-        currentPath === "/";
+      const requestUrl = error.config?.url ?? '';
+      const isVerifyPassword = requestUrl.includes('/verify-password');
+      const isLogin = requestUrl.includes('/auth/login');
       
-      if (isProtectedRoute && currentPath !== "/login") {
-        window.location.href = "/login";
+      if (!isVerifyPassword && !isLogin) {
+        Cookies.remove("auth_token");
+        Cookies.remove("auth_type");
+        Cookies.remove("auth_user");
+
+        const currentPath = window.location.pathname;
+        const isProtectedRoute = 
+          currentPath.startsWith("/admin") ||
+          currentPath.startsWith("/doctor") ||
+          currentPath.startsWith("/technical") ||
+          currentPath === "/";
+        
+        if (isProtectedRoute && currentPath !== "/login") {
+          window.location.href = "/login";
+        }
       }
     }
     return Promise.reject(error);
