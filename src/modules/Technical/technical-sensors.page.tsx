@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Gauge, Activity, Thermometer } from "lucide-react";
+import { Gauge, Activity, Thermometer, Power } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useMqttSubscribe, MQTT_TOPICS } from "@/lib/mqtt";
+import axios from "@/lib/axios";
 
 type SensorReading = {
   name: string;
@@ -19,6 +20,8 @@ type TelemetryPayload = {
     groupId: number;
     pressureKpa: number;
     forceNewtons: number;
+    pumpOn?: boolean;
+    valveClosed?: boolean;
     pressureSensorAvailable?: boolean;
     forceSensorAvailable?: boolean;
   }>;
@@ -31,6 +34,7 @@ type TelemetryPayload = {
 export function TechnicalSensorsPage() {
   const telemetry = useMqttSubscribe<TelemetryPayload>(MQTT_TOPICS.telemetry);
   const [testRunning, setTestRunning] = useState<string | null>(null);
+  const [actuating, setActuating] = useState<number | null>(null);
 
   const pressureSensors: SensorReading[] = [
     {
@@ -109,6 +113,55 @@ export function TechnicalSensorsPage() {
     }, 2000);
   };
 
+  const activePumps = telemetry?.groups?.filter((g) => g.pumpOn).length ?? 0;
+
+  const togglePump = async (groupId: number) => {
+    const group = telemetry?.groups?.find((g) => g.groupId === groupId);
+    if (!group) return;
+
+    const willTurnOn = !group.pumpOn;
+    
+    if (willTurnOn && activePumps >= 2) {
+      toast.error("No es posible activar más de dos bombas simultáneamente por limitación de corriente del sistema.");
+      return;
+    }
+
+    setActuating(groupId);
+    try {
+      await axios.post(`/device/groups/${groupId}/actuate`, {
+        pumpOn: willTurnOn,
+        valveClosed: willTurnOn ? group.valveClosed : false,
+        durationMs: willTurnOn ? 1000 : 100,
+      });
+      toast.success(`Bomba ${groupId} ${willTurnOn ? "activada" : "desactivada"}`);
+    } catch {
+      toast.error(`Error al controlar bomba ${groupId}`);
+    } finally {
+      setActuating(null);
+    }
+  };
+
+  const toggleValve = async (groupId: number) => {
+    const group = telemetry?.groups?.find((g) => g.groupId === groupId);
+    if (!group) return;
+
+    const willClose = !group.valveClosed;
+
+    setActuating(groupId);
+    try {
+      await axios.post(`/device/groups/${groupId}/actuate`, {
+        pumpOn: group.pumpOn,
+        valveClosed: willClose,
+        durationMs: willClose ? 1000 : 100,
+      });
+      toast.success(`Válvula ${groupId} ${willClose ? "cerrada" : "abierta"}`);
+    } catch {
+      toast.error(`Error al controlar válvula ${groupId}`);
+    } finally {
+      setActuating(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -183,6 +236,73 @@ export function TechnicalSensorsPage() {
         testRunning={testRunning}
         onTest={runTest}
       />
+
+      <Card className="border-border/60">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base font-bold">
+              <Power className="h-4 w-4 text-primary" />
+              Control de bombas y válvulas
+            </CardTitle>
+            <StatusBadge
+              variant={activePumps >= 2 ? "warn" : "good"}
+              label={`${activePumps}/2 bombas activas`}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Máximo 2 bombas simultáneas por limitación de corriente
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {telemetry?.groups?.map((group) => (
+              <div
+                key={group.groupId}
+                className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm font-bold">
+                    Grupo {group.groupId}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    variant={group.pumpOn ? "default" : "outline"}
+                    className={`btn-biomed ${
+                      group.pumpOn
+                        ? "bg-primary text-white"
+                        : "border border-border bg-card text-foreground"
+                    }`}
+                    disabled={actuating !== null}
+                    onClick={() => togglePump(group.groupId)}
+                  >
+                    <Power className="h-3 w-3" />
+                    {group.pumpOn ? "ON" : "OFF"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={group.valveClosed ? "default" : "outline"}
+                    className={`btn-biomed ${
+                      group.valveClosed
+                        ? "bg-secondary text-white"
+                        : "border border-border bg-card text-foreground"
+                    }`}
+                    disabled={actuating !== null}
+                    onClick={() => toggleValve(group.groupId)}
+                  >
+                    {group.valveClosed ? "C" : "A"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground">
+                  <span>Bomba</span>
+                  <span>Válvula</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

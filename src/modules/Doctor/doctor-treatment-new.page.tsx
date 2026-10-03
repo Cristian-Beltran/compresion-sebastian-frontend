@@ -298,6 +298,15 @@ export function DoctorTreatmentNewPage() {
 
   const toggleZone = (zone: ZoneKey) => {
     if (activeTreatment) return;
+    
+    const isCurrentlySelected = Boolean(groups[zone]);
+    const currentSelectionCount = Object.keys(groups).length;
+    
+    if (!isCurrentlySelected && currentSelectionCount >= 2) {
+      toast.error("No es posible activar más de dos bombas simultáneamente por limitación de corriente del sistema.");
+      return;
+    }
+    
     setGroups((current) => {
       const next = { ...current };
       if (next[zone]) delete next[zone];
@@ -437,12 +446,18 @@ export function DoctorTreatmentNewPage() {
               <div>
                 <CardTitle>Seleccione las zonas de tratamiento</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  La selección es múltiple e independiente.
+                  La selección es múltiple e independiente. Máximo 2 zonas.
                 </p>
               </div>
-              <span className="rounded-full bg-[#e9f4ff] px-3 py-1 text-xs font-bold text-[#0b5cab]">
-                {selectedEntries.length} de 4 seleccionadas
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  selectedEntries.length >= 2 
+                    ? "bg-amber-500/15 text-amber-600" 
+                    : "bg-[#e9f4ff] text-[#0b5cab]"
+                }`}>
+                  {selectedEntries.length} de 2 máximo
+                </span>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-4">
