@@ -34,6 +34,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       Cookies.set("auth_type", user.type);
       Cookies.set("auth_user", JSON.stringify(user));
       localStorage.setItem("session_started_at", String(Date.now()));
+      sessionStorage.removeItem(`venoflow-welcome-${user.id}`);
 
       const version = localStorage.getItem("view_version");
       if (!version) localStorage.setItem("view_version", "1");

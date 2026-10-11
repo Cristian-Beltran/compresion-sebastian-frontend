@@ -615,7 +615,7 @@ export default function MonitoringPage() {
                 Dispositivo y ciclos
               </CardTitle>
               <CardDescription className="text-xs">
-                Gestiona la conexión al ESP32 y la ejecución de ciclos de
+                Gestiona la conexión al equipo y la ejecución de ciclos de
                 inflado/mantenimiento.
               </CardDescription>
             </CardHeader>

@@ -21,8 +21,9 @@ import {
 
 type Treatment = {
   id: string;
-  patientId: string;
+  patientId?: string | null;
   patientName?: string;
+  sessionType?: "patient" | "manual";
   configId?: string | null;
   intensity?: string;
   treatmentZone?: string;
@@ -75,7 +76,7 @@ export function DoctorTreatmentHistoryPage() {
         const groupZones =
           item.groups?.map((group) => group.zone).join(" ") ?? "";
         const text =
-          `${item.patientId} ${item.patientName ?? ""} ${item.intensity ?? ""} ${item.treatmentZone ?? ""} ${groupZones} ${item.mobilityLevel ?? ""}`.toLowerCase();
+          `${item.sessionType ?? "patient"} ${item.patientId ?? ""} ${item.patientName ?? ""} ${item.intensity ?? ""} ${item.treatmentZone ?? ""} ${groupZones} ${item.mobilityLevel ?? ""}`.toLowerCase();
         return byStatus && text.includes(search.toLowerCase());
       }),
     [items, search, statusFilter],
@@ -108,7 +109,7 @@ export function DoctorTreatmentHistoryPage() {
     ];
     const rows = filtered.map((item) => [
       item.id,
-      item.patientId,
+      item.patientId ?? "",
       item.patientName ?? "",
       item.intensity ?? "",
       item.treatmentZone ?? "",
@@ -201,7 +202,7 @@ export function DoctorTreatmentHistoryPage() {
                 {filtered.map((item) => (
                   <tr key={item.id} className="border-t hover:bg-muted/20">
                     <td className="px-4 py-3 font-medium">
-                      {item.patientName ?? item.patientId}
+                      {item.sessionType === "manual" ? "Manual · Sin paciente" : (item.patientName ?? item.patientId)}
                     </td>
                     <td className="px-4 py-3">
                       {new Date(item.startedAt).toLocaleDateString()}
@@ -273,7 +274,7 @@ export function DoctorTreatmentHistoryPage() {
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Sesión · {detailTreatment?.patientName ?? detailTreatment?.patientId}
+              Sesión · {detailTreatment?.sessionType === "manual" ? "Manual · Sin paciente asociado" : (detailTreatment?.patientName ?? detailTreatment?.patientId)}
             </DialogTitle>
             <DialogDescription>
               {detailTreatment

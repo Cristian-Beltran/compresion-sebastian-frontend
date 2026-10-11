@@ -1,6 +1,7 @@
 export type GroupTelemetry = {
   groupId: number;
   enabled: boolean;
+  active?: boolean;
   state: string;
   pressureKpa: number;
   targetPressureKpa: number;
@@ -38,6 +39,11 @@ export type DeviceTelemetry = {
   calibrationVersion?: number;
   treatmentId?: string;
   activeMask?: number;
+  runningMask?: number;
+  paused?: boolean;
+  batchIndex?: number;
+  batchCount?: number;
+  sessionMode?: "patient" | "manual" | "local";
   groups?: GroupTelemetry[];
   error?: string;
 };

@@ -2,247 +2,27 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Gauge, Power } from "lucide-react";
+import { Power, Settings2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useMqttSubscribe, MQTT_TOPICS } from "@/lib/mqtt";
 import axios from "@/lib/axios";
 
-type GroupData = {
-  groupId: number;
-  pressureKpa: number;
-  forceNewtons: number;
-  pumpOn: boolean;
-  valveClosed: boolean;
-  pressureSensorAvailable: boolean;
-  forceSensorAvailable: boolean;
-};
-
-type TelemetryPayload = {
-  groups?: Array<{
-    groupId: number;
-    pressureKpa: number;
-    forceNewtons: number;
-    pumpOn?: boolean;
-    valveClosed?: boolean;
-    pressureSensorAvailable?: boolean;
-    forceSensorAvailable?: boolean;
-  }>;
-};
-
-const GROUP_COLORS = ["#1673c8", "#14a37f", "#f59e0b", "#8b5cf6"];
-
-const defaultGroups: GroupData[] = [1, 2, 3, 4].map((id) => ({
-  groupId: id,
-  pressureKpa: 0,
-  forceNewtons: 0,
-  pumpOn: false,
-  valveClosed: false,
-  pressureSensorAvailable: true,
-  forceSensorAvailable: true,
-}));
+type GroupData = { groupId:number; pressureKpa:number; forceNewtons:number; pumpOn:boolean; valveClosed:boolean; pressureSensorAvailable:boolean; forceSensorAvailable:boolean; };
+type TelemetryPayload = { treatmentRunning?:boolean; temperatureC?:number; temperature1C?:number; temperature2C?:number; groups?:Partial<GroupData>[] };
+const fallback:GroupData[] = [1,2,3,4].map((groupId) => ({groupId,pressureKpa:0,forceNewtons:0,pumpOn:false,valveClosed:false,pressureSensorAvailable:false,forceSensorAvailable:false}));
 
 export function TechnicalSensorsPage() {
   const telemetry = useMqttSubscribe<TelemetryPayload>(MQTT_TOPICS.telemetry);
-  const [actuating, setActuating] = useState<number | null>(null);
-
-  const groups: GroupData[] = telemetry?.groups?.length
-    ? [1, 2, 3, 4].map((id) => {
-        const g = telemetry.groups?.find((tg) => tg.groupId === id);
-        return g
-          ? {
-              groupId: g.groupId,
-              pressureKpa: g.pressureKpa ?? 0,
-              forceNewtons: g.forceNewtons ?? 0,
-              pumpOn: g.pumpOn ?? false,
-              valveClosed: g.valveClosed ?? false,
-              pressureSensorAvailable: g.pressureSensorAvailable !== false,
-              forceSensorAvailable: g.forceSensorAvailable !== false,
-            }
-          : defaultGroups[id - 1];
-      })
-    : defaultGroups;
-
-  const activePumps = groups.filter((g) => g.pumpOn).length;
-
-  const togglePump = async (groupId: number) => {
-    const group = groups.find((g) => g.groupId === groupId);
-    if (!group) return;
-
-    const willTurnOn = !group.pumpOn;
-
-    if (willTurnOn && activePumps >= 2) {
-      toast.error(
-        "No es posible activar más de dos bombas simultáneamente por limitación de corriente del sistema."
-      );
-      return;
-    }
-
-    setActuating(groupId);
-    try {
-      await axios.post(`/device/groups/${groupId}/actuate`, {
-        pumpOn: willTurnOn,
-        valveClosed: willTurnOn ? group.valveClosed : false,
-        durationMs: willTurnOn ? 1000 : 100,
-      });
-      toast.success(`Bomba ${groupId} ${willTurnOn ? "activada" : "desactivada"}`);
-    } catch {
-      toast.error(`Error al controlar bomba ${groupId}`);
-    } finally {
-      setActuating(null);
-    }
-  };
-
-  const toggleValve = async (groupId: number) => {
-    const group = groups.find((g) => g.groupId === groupId);
-    if (!group) return;
-
-    const willClose = !group.valveClosed;
-
-    setActuating(groupId);
-    try {
-      await axios.post(`/device/groups/${groupId}/actuate`, {
-        pumpOn: group.pumpOn,
-        valveClosed: willClose,
-        durationMs: willClose ? 1000 : 100,
-      });
-      toast.success(`Válvula ${groupId} ${willClose ? "cerrada" : "abierta"}`);
-    } catch {
-      toast.error(`Error al controlar válvula ${groupId}`);
-    } finally {
-      setActuating(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="eyebrow text-primary">Supervisión técnica</p>
-          <h2 className="mt-1 text-3xl font-bold tracking-tight">
-            Sensores y actuadores
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Lecturas en tiempo real y control manual de bombas y válvulas por grupo.
-          </p>
-        </div>
-        <StatusBadge
-          variant={activePumps >= 2 ? "warn" : "good"}
-          label={`${activePumps}/2 bombas activas`}
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {groups.map((group) => (
-          <Card
-            key={group.groupId}
-            className="border-border/60"
-            style={{ borderTopWidth: "3px", borderTopColor: GROUP_COLORS[group.groupId - 1] }}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base font-bold">
-                  <Gauge className="h-4 w-4 text-primary" />
-                  Grupo {group.groupId}
-                </CardTitle>
-                <StatusBadge
-                  variant={
-                    group.pressureSensorAvailable && group.forceSensorAvailable
-                      ? "good"
-                      : "bad"
-                  }
-                  label={
-                    group.pressureSensorAvailable && group.forceSensorAvailable
-                      ? "Operativo"
-                      : "Revisar"
-                  }
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-border/60 bg-card p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs font-bold text-muted-foreground">
-                      Presión
-                    </span>
-                    <StatusBadge
-                      variant={group.pressureSensorAvailable ? "good" : "bad"}
-                      label={group.pressureSensorAvailable ? "Normal" : "Revisar"}
-                    />
-                  </div>
-                  <p className="font-mono text-xl font-bold tabular-nums">
-                    {group.pressureKpa.toFixed(2)}
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      kPa
-                    </span>
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/60 bg-card p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs font-bold text-muted-foreground">
-                      Fuerza
-                    </span>
-                    <StatusBadge
-                      variant={group.forceSensorAvailable ? "good" : "bad"}
-                      label={group.forceSensorAvailable ? "Normal" : "Revisar"}
-                    />
-                  </div>
-                  <p className="font-mono text-xl font-bold tabular-nums">
-                    {group.forceNewtons.toFixed(2)}
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">N</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                <p className="text-xs font-bold text-muted-foreground mb-2">
-                  Control de actuadores
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Button
-                      size="sm"
-                      variant={group.pumpOn ? "default" : "outline"}
-                      className={`w-full ${
-                        group.pumpOn
-                          ? "bg-primary text-white hover:bg-primary/90"
-                          : "border border-border bg-card text-foreground hover:bg-muted"
-                      }`}
-                      disabled={actuating !== null}
-                      onClick={() => togglePump(group.groupId)}
-                    >
-                      <Power className="h-3 w-3 mr-1" />
-                      {group.pumpOn ? "Bomba ON" : "Bomba OFF"}
-                    </Button>
-                    <p className="text-[10px] text-center text-muted-foreground">
-                      Bomba
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Button
-                      size="sm"
-                      variant={group.valveClosed ? "default" : "outline"}
-                      className={`w-full ${
-                        group.valveClosed
-                          ? "bg-secondary text-white hover:bg-secondary/90"
-                          : "border border-border bg-card text-foreground hover:bg-muted"
-                      }`}
-                      disabled={actuating !== null}
-                      onClick={() => toggleValve(group.groupId)}
-                    >
-                      {group.valveClosed ? "Válvula C" : "Válvula A"}
-                    </Button>
-                    <p className="text-[10px] text-center text-muted-foreground">
-                      Válvula
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
+  const [selected, setSelected] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const groups = [1,2,3,4].map((id) => ({...fallback[id-1], ...(telemetry?.groups?.find((item) => item.groupId === id) ?? {})}));
+  const current = groups[selected-1];
+  const blocked = Boolean(telemetry?.treatmentRunning || busy);
+  const setActuator = async (patch:Partial<Pick<GroupData,"pumpOn"|"valveClosed">>) => { setBusy(true); try { await axios.post(`/device/groups/${selected}/actuate`, {pumpOn:patch.pumpOn ?? current.pumpOn, valveClosed:patch.valveClosed ?? current.valveClosed, persistent:true}); toast.success("Estado confirmado por el equipo"); } catch { toast.error("No se pudo actualizar el actuador"); } finally { setBusy(false); } };
+  return <div className="space-y-6"><header><p className="eyebrow text-primary">Supervisión técnica</p><h2 className="mt-1 text-3xl font-bold tracking-tight">Sensores y control</h2><p className="mt-1 text-sm text-muted-foreground">Las lecturas y el accionamiento del equipo están separados para una operación clara.</p></header>
+    <section className="space-y-3"><div><h3 className="font-bold">Sensores</h3><p className="text-sm text-muted-foreground">Valores en tiempo real por zona.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{groups.map((group) => <Card key={group.groupId}><CardHeader className="pb-2"><div className="flex justify-between"><CardTitle className="text-base">Grupo {group.groupId}</CardTitle><StatusBadge variant={group.pressureSensorAvailable && group.forceSensorAvailable ? "good" : "bad"} label={group.pressureSensorAvailable && group.forceSensorAvailable ? "Operativo" : "Sin dato"}/></div></CardHeader><CardContent className="grid grid-cols-2 gap-3"><Reading label="Presión" value={group.pressureKpa} unit="kPa"/><Reading label="Fuerza" value={group.forceNewtons} unit="N"/></CardContent></Card>)}</div><div className="grid gap-3 sm:grid-cols-3"><Reading label="Temperatura 1" value={Number(telemetry?.temperature1C ?? 0)} unit="°C"/><Reading label="Temperatura 2" value={Number(telemetry?.temperature2C ?? 0)} unit="°C"/><Reading label="Promedio térmico" value={Number(telemetry?.temperatureC ?? 0)} unit="°C"/></div></section>
+    <section className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]"><Card><CardHeader><CardTitle>Zona a controlar</CardTitle></CardHeader><CardContent className="grid grid-cols-2 gap-2">{groups.map((group) => <Button key={group.groupId} variant={selected===group.groupId?"default":"outline"} onClick={() => setSelected(group.groupId)}>Grupo {group.groupId}</Button>)}</CardContent></Card><Card><CardHeader><CardTitle className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-primary"/>Bombas y válvulas · Grupo {selected}</CardTitle></CardHeader><CardContent className="space-y-4"><p className="text-sm text-muted-foreground">Cada control es persistente e independiente. Se libera automáticamente ante terapia, parada o desconexión.</p><div className="grid gap-3 sm:grid-cols-2"><Control label="Bomba" enabled={current.pumpOn} disabled={blocked} onClick={() => void setActuator({pumpOn:!current.pumpOn})}/><Control label="Válvula cerrada" enabled={current.valveClosed} disabled={blocked} onClick={() => void setActuator({valveClosed:!current.valveClosed})}/></div>{telemetry?.treatmentRunning && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">El control se bloquea mientras hay una terapia activa.</p>}</CardContent></Card></section>
+  </div>;
 }
+function Reading({label,value,unit}:{label:string;value:number;unit:string}) { return <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="font-mono text-xl font-bold">{Number(value).toFixed(2)} <small className="text-xs text-muted-foreground">{unit}</small></p></div>; }
+function Control({label,enabled,disabled,onClick}:{label:string;enabled:boolean;disabled:boolean;onClick:()=>void}) { return <div className="rounded-xl border p-4"><p className="font-bold">{label}</p><p className="mb-3 text-sm text-muted-foreground">{enabled?"Encendido":"Apagado"}</p><Button className="w-full" disabled={disabled} variant={enabled?"destructive":"default"} onClick={onClick}><Power className="mr-2 h-4 w-4"/>{enabled?"Apagar":"Encender"}</Button></div>; }

@@ -78,7 +78,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary" />
           <p className="text-xs font-semibold text-muted-foreground">
-            Inicializando panel de control de compresion...
+            Inicializando plataforma VenoFlow...
           </p>
         </div>
       </div>
@@ -89,8 +89,8 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Iniciar sesion en Sebastian"
-      subtitle="Gestione la compresion neumatica y el monitoreo de presion desde una unica consola."
+      title="Terapia precisa. Supervisión segura."
+      subtitle="Plataforma biomédica VenoFlow: entorno clínico para la configuración, monitoreo y trazabilidad de terapias neumáticas secuenciales."
     >
       <Form {...form}>
         <form
@@ -121,7 +121,7 @@ export default function LoginPage() {
                         <Mail className="h-4 w-4" />
                       </span>
                       <Input
-                        placeholder="usuario@sebastian.clinic"
+                        placeholder="usuario@venoflow.clinic"
                         className="h-[46px] rounded-[10px] pl-10 text-sm"
                         style={{ borderColor: "#cbd6e2" }}
                         autoComplete="email"
@@ -187,7 +187,7 @@ export default function LoginPage() {
 
           <div className="flex items-center gap-2 text-xs">
             <span className="inline-flex h-2 w-2 rounded-full bg-accent" />
-            <span className="text-muted-foreground">Conexion segura al modulo de control</span>
+            <span className="text-muted-foreground">Conexión segura al equipo</span>
           </div>
 
           <Button
@@ -202,7 +202,7 @@ export default function LoginPage() {
                 Validando credenciales...
               </>
             ) : (
-              "Acceder al panel de compresion"
+              "Acceder a VenoFlow"
             )}
           </Button>
 
@@ -212,8 +212,7 @@ export default function LoginPage() {
               credenciales con terceros.
             </p>
             <p>
-              Cada accion realizada sobre la banda de compresion y los ciclos de
-              presion queda registrada para efectos de trazabilidad clinica.
+              Cada acción de terapia queda registrada para efectos de trazabilidad clínica.
             </p>
           </div>
         </form>

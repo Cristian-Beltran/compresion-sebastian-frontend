@@ -62,7 +62,9 @@ type GroupConfig = {
 
 type DeviceGroup = {
   groupId: number;
+  zone?: string;
   enabled: boolean;
+  active?: boolean;
   state: string;
   pressureKpa: number;
   targetPressureKpa: number;
@@ -86,12 +88,17 @@ type ContextMenu = { zone: ZoneKey; x: number; y: number } | null;
 type TelemetryReading = {
   state?: string;
   temperatureC?: number | string | null;
+  paused?: boolean;
+  batchIndex?: number;
+  batchCount?: number;
+  sessionMode?: "patient" | "manual" | "local";
   groups?: DeviceGroup[];
 };
 type ActiveTreatment = {
   id: string;
-  patientId: string;
+  patientId?: string | null;
   patientName?: string;
+  sessionType?: "patient" | "manual";
   groups?: GroupConfig[];
 };
 type LiveResponse = {
@@ -149,7 +156,7 @@ const DEFAULT_PRESETS: Record<Exclude<Intensity, "custom">, Preset> = {
     targetPressureKpa: 5,
     holdTimeSeconds: 10,
     releaseTimeSeconds: 5,
-    cycleTarget: 25,
+    cycleTarget: 8,
   },
   high: {
     intensity: "high",
@@ -205,6 +212,7 @@ function numeric(value: unknown) {
 export function DoctorTreatmentNewPage() {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [patientId, setPatientId] = useState("");
+  const [manualSession, setManualSession] = useState(false);
   const [mobilityLevel, setMobilityLevel] = useState<MobilityLevel | "">("");
   const [groups, setGroups] = useState<Partial<Record<ZoneKey, GroupConfig>>>(
     {},
@@ -301,7 +309,9 @@ export function DoctorTreatmentNewPage() {
       : [];
   const online = Boolean(live?.status?.online ?? live?.status?.connected);
   const currentPatient =
-    patients.find((patient) => patient.id === activeTreatment?.patientId)
+    activeTreatment?.sessionType === "manual"
+      ? "Sesión manual · Sin paciente asociado"
+      : patients.find((patient) => patient.id === activeTreatment?.patientId)
       ?.fullname ??
     activeTreatment?.patientName ??
     "-";
@@ -324,8 +334,8 @@ export function DoctorTreatmentNewPage() {
     const isCurrentlySelected = Boolean(groups[zone]);
     const currentSelectionCount = Object.keys(groups).length;
     
-    if (!isCurrentlySelected && currentSelectionCount >= 2) {
-      toast.error("No es posible activar más de dos bombas simultáneamente por limitación de corriente del sistema.");
+    if (!isCurrentlySelected && currentSelectionCount >= 4) {
+      toast.error("Solo existen cuatro zonas configurables.");
       return;
     }
     
@@ -388,8 +398,8 @@ export function DoctorTreatmentNewPage() {
   };
 
   const start = async () => {
-    if (!patientId || !mobilityLevel || selectedEntries.length === 0) {
-      toast.error("Selecciona paciente, movilidad y al menos un compresor");
+    if ((!manualSession && (!patientId || !mobilityLevel)) || selectedEntries.length === 0) {
+      toast.error(manualSession ? "Selecciona al menos un compresor" : "Selecciona paciente, movilidad y al menos un compresor");
       return;
     }
 
@@ -397,6 +407,7 @@ export function DoctorTreatmentNewPage() {
     try {
       await axios.post("/doctor/treatments/start", {
         patientId,
+        manual: manualSession,
         mobilityLevel,
         intensity: selectedEntries.every(
           ([, item]) => item.intensity === selectedEntries[0][1].intensity,
@@ -464,7 +475,7 @@ export function DoctorTreatmentNewPage() {
           ) : (
             <WifiOff className="h-4 w-4" />
           )}
-          ESP32 {online ? "conectado" : "sin conexión"}
+          Equipo {online ? "conectado" : "sin conexión"}
         </div>
       </header>
 
@@ -475,7 +486,7 @@ export function DoctorTreatmentNewPage() {
               <div>
                 <CardTitle>Seleccione las zonas de tratamiento</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  La selección es múltiple e independiente. Máximo 2 zonas.
+                  La selección es múltiple. El equipo ejecuta un máximo de dos bombas por tanda.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -484,7 +495,7 @@ export function DoctorTreatmentNewPage() {
                     ? "bg-amber-500/15 text-amber-600" 
                     : "bg-[#e9f4ff] text-[#0b5cab]"
                 }`}>
-                  {selectedEntries.length} de 2 máximo
+                  {selectedEntries.length} de 4 zonas
                 </span>
               </div>
             </div>
@@ -602,7 +613,26 @@ export function DoctorTreatmentNewPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <label className="grid gap-1.5 text-sm font-bold">
-                Paciente
+                <span className="flex items-center justify-between gap-2">
+                  Paciente
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[#0b5cab] underline"
+                    disabled={Boolean(activeTreatment)}
+                    onClick={() => {
+                      setManualSession((value) => !value);
+                      setPatientId("");
+                      setMobilityLevel("");
+                    }}
+                  >
+                    {manualSession ? "Usar paciente" : "Sesión manual"}
+                  </button>
+                </span>
+                {manualSession ? (
+                  <span className="rounded-lg border border-dashed bg-muted/30 px-3 py-3 text-sm font-normal text-muted-foreground">
+                    Sesión manual · Sin paciente asociado
+                  </span>
+                ) : (
                 <select
                   className="h-11 rounded-lg border bg-background px-3 font-normal"
                   value={patientId}
@@ -616,8 +646,9 @@ export function DoctorTreatmentNewPage() {
                     </option>
                   ))}
                 </select>
+                )}
               </label>
-              <label className="grid gap-1.5 text-sm font-bold">
+              {!manualSession && <label className="grid gap-1.5 text-sm font-bold">
                 Movilidad
                 <select
                   className="h-11 rounded-lg border bg-background px-3 font-normal"
@@ -632,7 +663,7 @@ export function DoctorTreatmentNewPage() {
                   <option value="movilidad_reducida">Movilidad reducida</option>
                   <option value="inmovil">Inmóvil</option>
                 </select>
-              </label>
+              </label>}
 
               {!activeTreatment ? (
                 <Button
@@ -641,7 +672,7 @@ export function DoctorTreatmentNewPage() {
                   disabled={starting || selectedEntries.length === 0}
                 >
                   <Play className="h-4 w-4" />
-                  {starting ? "ENVIANDO…" : "COMENZAR TRATAMIENTO"}
+                  {starting ? "ENVIANDO…" : manualSession ? "COMENZAR SESIÓN MANUAL" : "COMENZAR TRATAMIENTO"}
                 </Button>
               ) : (
                 <Button
@@ -713,7 +744,7 @@ export function DoctorTreatmentNewPage() {
             <CardContent className="grid gap-4 p-5 md:grid-cols-[1.3fr_repeat(3,1fr)]">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-[#aaccE7]">
-                  Sesión activa
+                  {activeTreatment.sessionType === "manual" ? "Sesión manual activa" : "Sesión activa"}
                 </p>
                 <h2 className="mt-1 text-xl font-extrabold">
                   {currentPatient}

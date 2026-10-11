@@ -167,7 +167,7 @@ export function TechnicalDashboardPage() {
           />
           <StatusBadge
             variant={status?.online ? "good" : "bad"}
-            label={status?.online ? "ESP32 online" : "ESP32 offline"}
+            label={status?.online ? "Equipo conectado" : "Equipo sin conexión"}
           />
           {status?.maintenanceMode && (
             <StatusBadge variant="warn" label="Mantenimiento" />

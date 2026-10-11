@@ -42,13 +42,13 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
                 className="text-3xl font-black tracking-tight text-white"
                 style={{ letterSpacing: "-0.04em" }}
               >
-                Sebastian
+                VenoFlow
               </h1>
               <p
                 className="text-xs font-extrabold uppercase tracking-[0.12em]"
                 style={{ color: "#a9d7ff" }}
               >
-                Compresion neumática
+                Plataforma biomédica
               </p>
             </div>
           </div>
@@ -59,20 +59,17 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
                 className="text-xs font-extrabold uppercase tracking-[0.1em]"
                 style={{ color: "#a9d7ff" }}
               >
-                Panel de control
+                Terapia precisa
               </p>
               <h2
                 className="mt-2 text-4xl font-black leading-tight text-white"
                 style={{ letterSpacing: "-0.04em" }}
               >
-                Cuatro circuitos,
-                <br />
-                un solo sistema.
+                Supervisión segura.
               </h2>
               <p className="mt-4 max-w-md text-base leading-relaxed" style={{ color: "#d1e5f7" }}>
-                Administre la compresion y descompresion de bandas neumaticas en
-                extremidades, manteniendo el flujo sanguineo bajo parametros
-                controlados mediante bomba de aire y sensor de presion.
+                Entorno clínico para la configuración, monitoreo y trazabilidad
+                de terapias neumáticas secuenciales.
               </p>
             </div>
 
@@ -82,9 +79,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
               >
                 <Gauge className="mb-2 h-5 w-5" style={{ color: "#78c6ff" }} />
-                <p className="text-sm font-bold text-white">Presion estable</p>
+                <p className="text-sm font-bold text-white">Terapia precisa</p>
                 <p className="mt-1 text-xs" style={{ color: "#8da9c2" }}>
-                  Ciclos configurables de compresion y relajacion.
+                  Ciclos configurables por zona.
                 </p>
               </div>
               <div
@@ -92,9 +89,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
               >
                 <HeartPulse className="mb-2 h-5 w-5" style={{ color: "#39aa82" }} />
-                <p className="text-sm font-bold text-white">Monitoreo continuo</p>
+                <p className="text-sm font-bold text-white">Supervisión segura</p>
                 <p className="mt-1 text-xs" style={{ color: "#8da9c2" }}>
-                  Lecturas en tiempo real via MQTT sobre WSS.
+                  Trazabilidad clínica y telemetría del equipo.
                 </p>
               </div>
             </div>
@@ -106,7 +103,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
               style={{ background: "#39aa82" }}
             />
             <p className="text-xs font-semibold" style={{ color: "#cbe5fb" }}>
-              Dispositivo conectado · broker MQTT activo
+              Equipo conectado · broker MQTT activo
             </p>
           </div>
         </div>

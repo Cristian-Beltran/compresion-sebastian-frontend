@@ -95,7 +95,7 @@ export function Sidebar() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold text-white">NC-THERAPY-01</p>
-            <p className="truncate text-[11px] text-sidebar-foreground/60">esp32-01</p>
+            <p className="truncate text-[11px] text-sidebar-foreground/60">Equipo VenoFlow</p>
           </div>
         </div>
       </div>
