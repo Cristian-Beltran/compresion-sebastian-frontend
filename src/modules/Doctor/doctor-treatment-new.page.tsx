@@ -219,7 +219,8 @@ export function DoctorTreatmentNewPage() {
   );
   const [presets, setPresets] =
     useState<Record<Exclude<Intensity, "custom">, Preset>>(DEFAULT_PRESETS);
-  const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+  const [selectedIntensity, setSelectedIntensity] = useState<Exclude<Intensity, "custom">>("medium");
+  const [, setContextMenu] = useState<ContextMenu>(null);
   const [live, setLive] = useState<LiveResponse | null>(null);
   const [activeTreatment, setActiveTreatment] =
     useState<ActiveTreatment | null>(null);
@@ -342,7 +343,7 @@ export function DoctorTreatmentNewPage() {
     setGroups((current) => {
       const next = { ...current };
       if (next[zone]) delete next[zone];
-      else next[zone] = configFromPreset(zone, presets.medium);
+      else next[zone] = configFromPreset(zone, presets[selectedIntensity]);
       return next;
     });
   };
@@ -373,28 +374,9 @@ export function DoctorTreatmentNewPage() {
     });
   };
 
-  const updateGroup = (zone: ZoneKey, patch: Partial<GroupConfig>) => {
-    setGroups((current) => ({
-      ...current,
-      [zone]: {
-        ...(current[zone] ?? configFromPreset(zone, presets.medium)),
-        ...patch,
-      },
-    }));
-  };
-
-  const changePreset = (
-    zone: ZoneKey,
-    intensity: Exclude<Intensity, "custom">,
-  ) => {
-    const preset = presets[intensity];
-    updateGroup(zone, {
-      intensity,
-      targetPressureKpa: preset.targetPressureKpa,
-      holdTimeSeconds: preset.holdTimeSeconds,
-      releaseTimeSeconds: preset.releaseTimeSeconds,
-      cycleTarget: preset.cycleTarget,
-    });
+  const selectProtocol = (intensity: Exclude<Intensity, "custom">) => {
+    setSelectedIntensity(intensity);
+    setGroups((current) => Object.fromEntries(Object.keys(current).map((key) => [key, configFromPreset(key as ZoneKey, presets[intensity])])));
   };
 
   const start = async () => {
@@ -409,12 +391,8 @@ export function DoctorTreatmentNewPage() {
         patientId,
         manual: manualSession,
         mobilityLevel,
-        intensity: selectedEntries.every(
-          ([, item]) => item.intensity === selectedEntries[0][1].intensity,
-        )
-          ? selectedEntries[0][1].intensity
-          : "custom",
-        groups: selectedEntries.map(([, item]) => item),
+        intensity: selectedIntensity,
+        groups: selectedEntries.map(([, item]) => ({ groupId: item.groupId, zone: item.zone })),
       });
       toast.success("Sesión enviada a los compresores seleccionados");
       setContextMenu(null);
@@ -695,24 +673,21 @@ export function DoctorTreatmentNewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              <label className="grid gap-1 text-sm font-medium">Protocolo predefinido
+                <select className="h-10 rounded-md border bg-background px-3 font-normal" value={selectedIntensity} disabled={Boolean(activeTreatment)} onChange={(event) => selectProtocol(event.target.value as Exclude<Intensity, "custom">)}>
+                  <option value="low">Baja intensidad</option><option value="medium">Media intensidad</option><option value="high">Alta intensidad</option>
+                </select>
+              </label>
+              <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">Presión, tiempos y ciclos son definidos por el protocolo seleccionado y no pueden modificarse en esta sesión.</p>
               {selectedEntries.length === 0 ? (
                 <p className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Selecciona una zona y usa clic derecho para editar sus
-                  parámetros.
+                  Selecciona al menos una zona de tratamiento.
                 </p>
               ) : (
                 selectedEntries.map(([key, config]) => (
-                  <button
+                  <div
                     key={key}
-                    className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:border-[#8ab8df]"
-                    onClick={(event) => {
-                      const rect = event.currentTarget.getBoundingClientRect();
-                      setContextMenu({
-                        zone: key,
-                        x: Math.min(rect.right + 8, window.innerWidth - 372),
-                        y: Math.min(rect.top, window.innerHeight - 602),
-                      });
-                    }}
+                    className="flex w-full items-center gap-3 rounded-lg border p-3 text-left"
                   >
                     <span
                       className="grid h-8 w-8 place-items-center rounded-lg text-xs font-extrabold text-white"
@@ -730,7 +705,7 @@ export function DoctorTreatmentNewPage() {
                       </small>
                     </span>
                     <Check className="ml-auto h-4 w-4 text-emerald-600" />
-                  </button>
+                  </div>
                 ))
               )}
             </CardContent>
@@ -893,25 +868,6 @@ export function DoctorTreatmentNewPage() {
         </section>
       )}
 
-      {contextMenu && groups[contextMenu.zone] && (
-        <GroupConfigurator
-          ref={popoverRef}
-          context={contextMenu}
-          config={groups[contextMenu.zone]!}
-          presets={presets}
-          onChange={(patch) => updateGroup(contextMenu.zone, patch)}
-          onPreset={(intensity) => changePreset(contextMenu.zone, intensity)}
-          onClose={() => setContextMenu(null)}
-          onRemove={() => {
-            setGroups((current) => {
-              const next = { ...current };
-              delete next[contextMenu.zone];
-              return next;
-            });
-            setContextMenu(null);
-          }}
-        />
-      )}
 
       <Dialog open={stopConfirmOpen} onOpenChange={setStopConfirmOpen}>
         <DialogContent className="sm:max-w-md">

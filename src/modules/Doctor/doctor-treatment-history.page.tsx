@@ -56,11 +56,16 @@ const zoneLabels: Record<string, string> = {
   pie_izquierdo: "Pie izquierdo",
   pie_derecho: "Pie derecho",
 };
+const intensityLabel = (value?: string) => ({ low: "baja intensidad", medium: "media intensidad", high: "alta intensidad" }[value ?? ""] ?? value ?? "");
+const statusLabel = (value: string) => ({ running: "en curso", completed: "completado", interrupted: "interrumpido", aborted: "abortado" }[value] ?? value);
 
 export function DoctorTreatmentHistoryPage() {
   const [items, setItems] = useState<Treatment[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [applied, setApplied] = useState({ search: "", status: "all", from: "", to: "" });
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTreatment, setDetailTreatment] = useState<Treatment | null>(null);
 
@@ -72,73 +77,22 @@ export function DoctorTreatmentHistoryPage() {
     () =>
       items.filter((item) => {
         const byStatus =
-          statusFilter === "all" ? true : item.status === statusFilter;
+          applied.status === "all" ? true : item.status === applied.status;
+        const started = new Date(item.startedAt);
+        const byFrom = !applied.from || started >= new Date(`${applied.from}T00:00:00`);
+        const byTo = !applied.to || started <= new Date(`${applied.to}T23:59:59.999`);
         const groupZones =
           item.groups?.map((group) => group.zone).join(" ") ?? "";
         const text =
-          `${item.sessionType ?? "patient"} ${item.patientId ?? ""} ${item.patientName ?? ""} ${item.intensity ?? ""} ${item.treatmentZone ?? ""} ${groupZones} ${item.mobilityLevel ?? ""}`.toLowerCase();
-        return byStatus && text.includes(search.toLowerCase());
+          `${item.sessionType ?? "patient"} ${item.patientId ?? ""} ${item.patientName ?? ""} ${item.intensity ?? ""} ${intensityLabel(item.intensity)} ${item.status} ${statusLabel(item.status)} ${item.treatmentZone ?? ""} ${groupZones} ${item.mobilityLevel ?? ""}`.toLowerCase();
+        return byStatus && byFrom && byTo && text.includes(applied.search.toLowerCase());
       }),
-    [items, search, statusFilter],
+    [items, applied],
   );
 
   const openDetail = (treatment: Treatment) => {
     setDetailTreatment(treatment);
     setDetailOpen(true);
-  };
-
-  const downloadCsv = () => {
-    const header = [
-      "id",
-      "patientId",
-      "patientName",
-      "intensity",
-      "treatmentZone",
-      "mobilityLevel",
-      "targetPressureKpa",
-      "holdTimeSeconds",
-      "releaseTimeSeconds",
-      "cycleTarget",
-      "status",
-      "cycleCount",
-      "durationSeconds",
-      "startedAt",
-      "endedAt",
-      "medicalReport",
-      "groups",
-    ];
-    const rows = filtered.map((item) => [
-      item.id,
-      item.patientId ?? "",
-      item.patientName ?? "",
-      item.intensity ?? "",
-      item.treatmentZone ?? "",
-      item.mobilityLevel ?? "",
-      String(item.targetPressureKpa ?? ""),
-      String(item.holdTimeSeconds ?? ""),
-      String(item.releaseTimeSeconds ?? ""),
-      String(item.cycleTarget ?? ""),
-      item.status,
-      String(item.cycleCount),
-      String(item.durationSeconds ?? 0),
-      item.startedAt,
-      item.endedAt ?? "",
-      item.medicalReport ?? "",
-      JSON.stringify(item.groups ?? []),
-    ]);
-    const csv = [header, ...rows]
-      .map((row) =>
-        row.map((col) => `"${String(col).replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `tratamientos_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const chartData = detailTreatment?.groups?.map((g) => ({
@@ -164,7 +118,7 @@ export function DoctorTreatmentHistoryPage() {
           <CardTitle>Historial de sesiones</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-5">
             <Input
               placeholder="Buscar por paciente, protocolo o estado"
               value={search}
@@ -181,7 +135,9 @@ export function DoctorTreatmentHistoryPage() {
               <option value="interrupted">Interrumpido</option>
               <option value="aborted">Abortado</option>
             </select>
-            <Button onClick={downloadCsv}>Descargar CSV</Button>
+            <Input type="date" aria-label="Desde" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input type="date" aria-label="Hasta" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Button onClick={() => setApplied({ search, status: statusFilter, from, to })}>Filtrar</Button>
           </div>
 
           <div className="overflow-x-auto rounded-lg border">

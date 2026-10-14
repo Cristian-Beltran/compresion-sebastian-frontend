@@ -14,9 +14,11 @@ import { Label } from "@/components/ui/label";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
 import { Plus, Search } from "lucide-react";
+import { jsPDF } from "jspdf";
 import {
-  Line,
-  LineChart,
+  Bar,
+  BarChart,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -184,6 +186,22 @@ export function DoctorPatientsPage() {
   const openSession = (treatment: Treatment) => {
     setSessionTreatment(treatment);
     setSessionOpen(true);
+  };
+
+  const downloadSessionCsv = () => {
+    if (!sessionTreatment) return;
+    const rows = [["Paciente", sessionTreatment.patientName ?? fichaPatient?.fullname ?? ""], ["Fecha", new Date(sessionTreatment.startedAt).toLocaleString()], ["Protocolo", sessionTreatment.intensity ?? ""], ["Estado", sessionTreatment.status], ["Ciclos", `${sessionTreatment.cycleCount}/${sessionTreatment.cycleTarget ?? ""}`], ["Registro médico", sessionTreatment.medicalReport ?? "Sin reporte"], [], ["Zona", "Presión (kPa)", "Ciclos realizados", "Meta de ciclos"], ...(sessionTreatment.groups ?? []).map((group) => [zoneLabels[group.zone] ?? `Grupo ${group.groupId}`, String(group.targetPressureKpa), String(group.cycleCount ?? sessionTreatment.cycleCount), String(group.cycleTarget)])];
+    const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `sesion-${sessionTreatment.id}.csv`; anchor.click(); URL.revokeObjectURL(url);
+  };
+  const downloadSessionPdf = () => {
+    if (!sessionTreatment) return;
+    const pdf = new jsPDF(); let y = 18;
+    const line = (label:string, value:string) => { pdf.text(`${label}: ${value}`, 14, y); y += 8; };
+    pdf.setFontSize(16); pdf.text("Registro médico con seguimiento clínico", 14, y); y += 12; pdf.setFontSize(11);
+    line("Paciente", sessionTreatment.patientName ?? fichaPatient?.fullname ?? "-"); line("Fecha", new Date(sessionTreatment.startedAt).toLocaleString()); line("Protocolo", (sessionTreatment.intensity ?? "-").toUpperCase()); line("Estado", sessionTreatment.status); line("Ciclos", `${sessionTreatment.cycleCount}/${sessionTreatment.cycleTarget ?? "-"}`);
+    (sessionTreatment.groups ?? []).forEach((group) => line(zoneLabels[group.zone] ?? `Grupo ${group.groupId}`, `${group.targetPressureKpa} kPa · ${group.cycleCount ?? sessionTreatment.cycleCount}/${group.cycleTarget} ciclos`));
+    y += 3; pdf.setFontSize(12); pdf.text("Registro médico", 14, y); y += 7; pdf.setFontSize(10); const report = pdf.splitTextToSize(sessionTreatment.medicalReport ?? "Sin reporte clínico registrado.", 180); pdf.text(report, 14, y); pdf.save(`sesion-${sessionTreatment.id}.pdf`);
   };
 
   const patientSessions = useMemo(
@@ -619,16 +637,14 @@ export function DoctorPatientsPage() {
                 </Card>
               </div>
 
-              {sessionTreatment.medicalReport && (
-                <Card>
+              <Card className="border-primary/30 bg-primary/5 shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Registro médico</CardTitle>
+                    <CardTitle className="text-sm">Registro médico con seguimiento clínico</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">{sessionTreatment.medicalReport}</p>
+                    <p className="text-sm text-muted-foreground">{sessionTreatment.medicalReport ?? "No se registró una observación clínica para esta sesión."}</p>
                   </CardContent>
-                </Card>
-              )}
+              </Card>
 
               <Card>
                 <CardHeader className="pb-2">
@@ -636,7 +652,7 @@ export function DoctorPatientsPage() {
                 </CardHeader>
                 <CardContent className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <BarChart
                       data={sessionTreatment.groups?.map((g) => ({
                         name: zoneLabels[g.zone] ?? `G${g.groupId}`,
                         pressure: g.targetPressureKpa,
@@ -646,11 +662,16 @@ export function DoctorPatientsPage() {
                       <XAxis dataKey="name" fontSize={11} />
                       <YAxis fontSize={11} unit=" kPa" />
                       <Tooltip />
-                      <Line type="monotone" dataKey="pressure" stroke="#1673c8" strokeWidth={2} />
-                    </LineChart>
+                      <Bar dataKey="pressure" name="Presión objetivo" radius={[4,4,0,0]}>{(sessionTreatment.groups ?? []).map((group) => <Cell key={group.groupId} fill={["#1673c8", "#14805e", "#ca7b28", "#8b5cf6"][group.groupId - 1]} />)}</Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Ciclos por zona</CardTitle></CardHeader>
+                <CardContent className="h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={sessionTreatment.groups?.map((g) => ({ name: zoneLabels[g.zone] ?? `G${g.groupId}`, realizados: g.cycleCount ?? sessionTreatment.cycleCount, meta: g.cycleTarget })) ?? []}><XAxis dataKey="name" fontSize={11}/><YAxis fontSize={11}/><Tooltip/><Bar dataKey="realizados" name="Realizados" radius={[4,4,0,0]}>{(sessionTreatment.groups ?? []).map((group) => <Cell key={group.groupId} fill={["#1673c8", "#14805e", "#ca7b28", "#8b5cf6"][group.groupId - 1]} />)}</Bar><Bar dataKey="meta" name="Meta" fill="#94a3b8" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></CardContent>
+              </Card>
+              <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={downloadSessionCsv}>Descargar Excel</Button><Button onClick={downloadSessionPdf}>Descargar PDF</Button></div>
             </div>
           )}
         </DialogContent>

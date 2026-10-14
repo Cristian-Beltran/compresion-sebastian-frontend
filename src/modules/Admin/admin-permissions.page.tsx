@@ -16,13 +16,13 @@ const modules = [
 const roles = ["Médico/Enfermería", "Técnico Biomédico", "Administrador"];
 
 const matrix: Record<string, boolean[]> = {
-  Pacientes: [true, false, true],
-  "Tratamientos clínicos": [true, false, true],
+  Pacientes: [true, false, false],
+  "Tratamientos clínicos": [true, false, false],
   "Historial clínico": [true, false, true],
-  "Diagnóstico de sensores": [false, true, true],
-  "Control de mantenimiento": [false, true, true],
-  "Calibración de protocolos": [false, true, true],
-  "Alertas técnicas": [true, true, true],
+  "Diagnóstico de sensores": [false, true, false],
+  "Control de mantenimiento": [false, true, false],
+  "Calibración de protocolos": [false, true, false],
+  "Alertas técnicas": [false, true, true],
   "Gestión de usuarios": [false, false, true],
   "Registros globales": [false, false, true],
   "Configuración general": [false, false, true],

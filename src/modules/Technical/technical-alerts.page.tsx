@@ -1,105 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { jsPDF } from "jspdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import axios from "@/lib/axios";
 import { Input } from "@/components/ui/input";
+import { Download, TriangleAlert } from "lucide-react";
 
-type AlertRow = {
-  id: string;
-  severity: "info" | "warn" | "critical";
-  message: string;
-  active: boolean;
-  createdAt: string;
-};
+type AlertRow={id:string;severity:"info"|"warn"|"critical";message:string;component?:string;active:boolean;createdAt:string;resolvedAt?:string|null};
+const severityLabel=(severity:AlertRow["severity"])=>({critical:"Crítica",warn:"Advertencia",info:"Informativa"}[severity]);
+const statusLabel=(active:boolean)=>active?"Activa":"Resuelta";
 
-export function TechnicalAlertsPage() {
-  const [alerts, setAlerts] = useState<AlertRow[]>([]);
-  const [query, setQuery] = useState("");
-  const [severity, setSeverity] = useState<"all" | "info" | "warn" | "critical">("all");
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const load = async () => {
-    const res = await axios.get("/alerts");
-    setAlerts(res.data);
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const resolveAlert = async (id: string) => {
-    await axios.patch(`/alerts/${id}/resolve`);
-    await load();
-  };
-
-  const active = alerts.filter((a) => a.active);
-  const filteredHistory = alerts.filter((a) => {
-    const bySeverity = severity === "all" ? true : a.severity === severity;
-    return bySeverity && a.message.toLowerCase().includes(query.toLowerCase());
-  });
-  const maxPage = Math.max(1, Math.ceil(filteredHistory.length / pageSize));
-  const rows = filteredHistory.slice((page - 1) * pageSize, page * pageSize);
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow text-primary">Seguimiento técnico</p>
-        <h2 className="text-2xl font-semibold">Alertas</h2>
-        <p className="text-sm text-muted-foreground">Alarmas registradas y seguimiento de resolución.</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Alertas activas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {active.length === 0 && <p>Sin alertas activas.</p>}
-          {active.map((row) => (
-            <div key={row.id} className="rounded border border-border p-3 text-sm flex items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">[{row.severity}] {row.message}</p>
-                <p className="text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</p>
-              </div>
-              <Button variant="outline" onClick={() => void resolveAlert(row.id)}>
-                Resolver
-              </Button>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Historial de alertas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="grid gap-2 md:grid-cols-2">
-            <Input placeholder="Buscar alerta" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <select
-              className="h-10 rounded-md border bg-background px-3"
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value as any)}
-            >
-              <option value="all">Todas</option>
-              <option value="info">Info</option>
-              <option value="warn">Warn</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
-
-          {rows.map((row) => (
-            <div key={row.id} className="rounded border border-border p-3 text-sm">
-              <p className="font-medium">[{row.severity}] {row.message}</p>
-              <p className="text-xs text-muted-foreground">Estado: {row.active ? "activa" : "resuelta"}</p>
-            </div>
-          ))}
-
-          <div className="flex items-center justify-between pt-2">
-            <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-            <span className="text-xs text-muted-foreground">Pagina {Math.min(page, maxPage)} de {maxPage}</span>
-            <Button variant="outline" disabled={page >= maxPage} onClick={() => setPage((p) => Math.min(maxPage, p + 1))}>Siguiente</Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+export function TechnicalAlertsPage(){
+  const [alerts,setAlerts]=useState<AlertRow[]>([]);const [query,setQuery]=useState("");const [severity,setSeverity]=useState("all");const [status,setStatus]=useState("all");const [date,setDate]=useState("");
+  const load=async()=>setAlerts((await axios.get<AlertRow[]>("/alerts")).data);useEffect(()=>{void load()},[]);
+  const filtered=useMemo(()=>alerts.filter((alert)=>{const text=`${alert.component??""} ${alert.message}`.toLowerCase();const byText=text.includes(query.toLowerCase());const bySeverity=severity==="all"||alert.severity===severity;const byStatus=status==="all"||(status==="active"?alert.active:!alert.active);const byDate=!date||new Date(alert.createdAt).toDateString()===new Date(`${date}T12:00:00`).toDateString();return byText&&bySeverity&&byStatus&&byDate}),[alerts,query,severity,status,date]);
+  const monthStart=new Date();monthStart.setDate(1);monthStart.setHours(0,0,0,0);const monthly=alerts.filter((alert)=>new Date(alert.createdAt)>=monthStart);const critical=monthly.filter((alert)=>alert.severity==="critical").length;const warnings=monthly.filter((alert)=>alert.severity==="warn").length;const resolved=monthly.filter((alert)=>!alert.active).length;
+  const resolve=async(id:string)=>{await axios.patch(`/alerts/${id}/resolve`);await load()};
+  const downloadCsv=()=>{const rows=[["Fecha","Componente","Alarma","Gravedad","Estado"],...filtered.map((alert)=>[new Date(alert.createdAt).toLocaleString(),alert.component??"Sistema",alert.message,severityLabel(alert.severity),statusLabel(alert.active)])];const csv=rows.map((row)=>row.map((cell)=>`"${String(cell).replace(/"/g,'""')}"`).join(",")).join("\n");const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));const anchor=document.createElement("a");anchor.href=url;anchor.download="alertas-tecnicas.csv";anchor.click();URL.revokeObjectURL(url)};
+  const downloadPdf=()=>{const pdf=new jsPDF();let y=16;pdf.setFontSize(16);pdf.text("Alertas técnicas",14,y);y+=10;pdf.setFontSize(10);filtered.forEach((alert)=>{const lines=pdf.splitTextToSize(`${new Date(alert.createdAt).toLocaleString()} | ${alert.component??"Sistema"} | ${severityLabel(alert.severity)} | ${statusLabel(alert.active)}\n${alert.message}`,180);if(y+lines.length*5>280){pdf.addPage();y=16}pdf.text(lines,14,y);y+=lines.length*5+4});pdf.save("alertas-tecnicas.pdf")};
+  return <div className="space-y-6"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow text-primary">Seguimiento técnico</p><h2 className="mt-1 text-3xl font-bold tracking-tight">Alertas</h2><p className="mt-1 text-sm text-muted-foreground">Alarmas del equipo, su gravedad y estado de resolución.</p></div><div className="flex gap-2"><Button variant="outline" onClick={downloadCsv}><Download className="mr-2 h-4 w-4"/>Descargar Excel</Button><Button onClick={downloadPdf}><Download className="mr-2 h-4 w-4"/>Descargar PDF</Button></div></div>
+    <section className="grid gap-4 md:grid-cols-3"><Summary title="Alertas críticas" value={critical} tone="text-red-600"/><Summary title="Advertencias" value={warnings} tone="text-amber-600"/><Summary title="Resueltas este mes" value={resolved} tone="text-emerald-600"/></section>
+    <Card><CardHeader><CardTitle className="text-base">Filtros</CardTitle></CardHeader><CardContent className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"><Input placeholder="Buscar por componente o descripción" value={query} onChange={(event)=>setQuery(event.target.value)}/><select className="h-10 rounded-md border bg-background px-3" value={severity} onChange={(event)=>setSeverity(event.target.value)}><option value="all">Toda gravedad</option><option value="critical">Crítica</option><option value="warn">Advertencia</option><option value="info">Informativa</option></select><select className="h-10 rounded-md border bg-background px-3" value={status} onChange={(event)=>setStatus(event.target.value)}><option value="all">Todo estado</option><option value="active">Activa</option><option value="resolved">Resuelta</option></select><Input type="date" aria-label="Fecha" value={date} onChange={(event)=>setDate(event.target.value)}/></CardContent></Card>
+    <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><TriangleAlert className="h-4 w-4"/>{filtered.length} alertas</CardTitle></CardHeader><CardContent><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b text-left text-muted-foreground"><tr><th className="p-3">Fecha</th><th className="p-3">Componente</th><th className="p-3">Alarma</th><th className="p-3">Gravedad</th><th className="p-3">Estado</th><th className="p-3"/></tr></thead><tbody>{filtered.map((alert)=><tr key={alert.id} className="border-b"><td className="p-3 whitespace-nowrap">{new Date(alert.createdAt).toLocaleString()}</td><td className="p-3 font-medium">{alert.component??"Sistema"}</td><td className="p-3">{alert.message}</td><td className="p-3"><span className={alert.severity==="critical"?"font-semibold text-red-600":alert.severity==="warn"?"font-semibold text-amber-600":"font-semibold text-blue-600"}>{severityLabel(alert.severity)}</span></td><td className="p-3">{statusLabel(alert.active)}</td><td className="p-3">{alert.active&&<Button size="sm" variant="outline" onClick={()=>void resolve(alert.id)}>Resolver</Button>}</td></tr>)}{!filtered.length&&<tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No se encontraron alertas.</td></tr>}</tbody></table></div></CardContent></Card>
+  </div>
 }
+function Summary({title,value,tone}:{title:string;value:number;tone:string}){return <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">{title}</p><p className={`mt-2 text-3xl font-bold ${tone}`}>{value}</p><p className="mt-1 text-xs text-muted-foreground">Mes actual</p></CardContent></Card>}
