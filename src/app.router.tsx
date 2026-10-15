@@ -19,6 +19,7 @@ import { DoctorDashboardPage } from "./modules/Doctor/doctor-dashboard.page";
 import { DoctorPatientsPage } from "./modules/Doctor/doctor-patients.page";
 import { DoctorTreatmentNewPage } from "./modules/Doctor/doctor-treatment-new.page";
 import { DoctorTreatmentHistoryPage } from "./modules/Doctor/doctor-treatment-history.page";
+import { DoctorTreatmentActivePage } from "./modules/Doctor/doctor-treatment-active.page";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
       { path: "doctor/dashboard", element: <DoctorDashboardPage /> },
       { path: "doctor/patients", element: <DoctorPatientsPage /> },
       { path: "doctor/treatments/new", element: <DoctorTreatmentNewPage /> },
+      { path: "doctor/treatments/:id/active", element: <DoctorTreatmentActivePage /> },
       {
         path: "doctor/treatments/history",
         element: <DoctorTreatmentHistoryPage />,

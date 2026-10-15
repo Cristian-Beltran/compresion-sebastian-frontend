@@ -39,6 +39,7 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
         z.number().int().min(0).max(120).optional(),
       ),
     sex: z.enum(["masculino", "femenino", "otro"]).optional(),
+    mobilityLevel: z.enum(["independiente", "movilidad_reducida", "inmovil"]).optional(),
   });
   type PatientFormValues = any;
 
@@ -49,6 +50,7 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
       fullname: "",
       age: undefined,
       sex: undefined,
+      mobilityLevel: undefined,
     },
   });
 
@@ -59,12 +61,14 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
         fullname: base.fullname,
         age: user.age,
         sex: user.sex,
+        mobilityLevel: user.mobilityLevel,
       });
     } else {
       form.reset({
         fullname: "",
         age: undefined,
         sex: undefined,
+        mobilityLevel: undefined,
       });
     }
   }, [user, form, isOpen]);
@@ -76,6 +80,7 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
           fullname: data.fullname,
           age: data.age,
           sex: data.sex,
+          mobilityLevel: data.mobilityLevel,
         });
       } else {
         await create(data);
@@ -156,6 +161,29 @@ export default function PatientFormModal({ isOpen, onClose, user }: Props) {
                         <option value="masculino">Masculino</option>
                         <option value="femenino">Femenino</option>
                         <option value="otro">Otro</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="mobilityLevel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Movilidad</FormLabel>
+                    <FormControl>
+                      <select
+                        className="h-10 w-full rounded-md border bg-background px-3"
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value || undefined)}
+                      >
+                        <option value="">Seleccionar</option>
+                        <option value="independiente">Independiente</option>
+                        <option value="movilidad_reducida">Movilidad reducida</option>
+                        <option value="inmovil">Inmóvil</option>
                       </select>
                     </FormControl>
                     <FormMessage />
