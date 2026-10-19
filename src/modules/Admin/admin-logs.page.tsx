@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { downloadExcelReport, downloadPdfReport, fetchAllReportPages } from "@/lib/reports";
 
 type LogRow = {
   id: string;
@@ -45,13 +46,17 @@ export function AdminLogsPage() {
 
   const maxPage = Math.max(1, Math.ceil(logs.total / logs.pageSize));
 
-  const handleExportPdf = () => {
-    toast("Exportando registros a PDF...");
+  const exportRows = async () => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (moduleFilter !== "all") params.set("module", moduleFilter);
+    if (dateFrom) params.set("dateFrom", new Date(`${dateFrom}T00:00:00`).toISOString());
+    if (dateTo) params.set("dateTo", new Date(`${dateTo}T23:59:59`).toISOString());
+    return fetchAllReportPages<LogRow>("/logs/search", params);
   };
-
-  const handleExportExcel = () => {
-    toast("Exportando registros a Excel...");
-  };
+  const report = (items: LogRow[]) => ({ filename: "registros-sistema", title: "Registros del sistema", subtitle: "Auditoría de actividad global", section: "Actividad registrada", filters: [search && `Búsqueda: ${search}`, moduleFilter !== "all" && `Módulo: ${moduleFilter}`, dateFrom && `Desde: ${dateFrom}`, dateTo && `Hasta: ${dateTo}`].filter(Boolean).join(" · "), columns: [{ header: "Usuario", key: "user" }, { header: "Fecha y hora", key: "date", width: 22 }, { header: "Rol", key: "role" }, { header: "Acción", key: "action", width: 44 }, { header: "Módulo", key: "module" }], rows: items.map((log) => ({ user: log.user ?? "—", date: new Date(log.createdAt).toLocaleString(), role: log.role ?? "—", action: log.action ?? "—", module: log.module ?? "—" })) });
+  const handleExportPdf = async () => { try { downloadPdfReport(report(await exportRows())); toast.success("Reporte PDF descargado."); } catch { toast.error("No se pudo generar el reporte."); } };
+  const handleExportExcel = async () => { try { await downloadExcelReport(report(await exportRows())); toast.success("Reporte Excel descargado."); } catch { toast.error("No se pudo generar el reporte."); } };
 
   return (
     <div className="space-y-6">

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, FlaskConical, History, ListFilter } from "lucide-react";
 import type { Calibration, SystemLog, TreatmentHistory } from "./admin.types";
+import { downloadExcelReport, downloadPdfReport, fetchAllReportPages } from "@/lib/reports";
 
 type Paged<T> = { items: T[]; total: number; page: number; pageSize: number };
 
@@ -79,6 +80,12 @@ export function AdminHistoryPage() {
       <div className="grid grid-cols-2 gap-2"><Input aria-label="Fecha desde" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /><Input aria-label="Fecha hasta" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></div>
     </div>
   );
+  const baseFilters = [query && `Búsqueda: ${query}`, groupId !== "all" && `Grupo: ${groupId}`, dateFrom && `Desde: ${dateFrom}`, dateTo && `Hasta: ${dateTo}`].filter(Boolean).join(" · ");
+  const eventReport = (items: SystemLog[]) => ({ filename: "eventos-operativos", title: "Historial operativo", subtitle: "Eventos del sistema", section: "Eventos registrados", filters: baseFilters, columns: [{ header: "Fecha y hora", key: "date", width: 22 }, { header: "Nivel", key: "level" }, { header: "Categoría", key: "category" }, { header: "Mensaje", key: "message", width: 50 }, { header: "Grupo", key: "group" }], rows: items.map((item) => ({ date: new Date(item.createdAt).toLocaleString(), level: item.level, category: item.category ?? item.source ?? "—", message: item.message, group: item.groupId ? `Grupo ${item.groupId}` : "—" })) });
+  const sessionReport = (items: TreatmentHistory[]) => ({ filename: "sesiones-clinicas", title: "Historial operativo", subtitle: "Sesiones clínicas", section: "Sesiones registradas", filters: baseFilters, columns: [{ header: "Paciente", key: "patient", width: 28 }, { header: "Inicio", key: "date", width: 22 }, { header: "Estado", key: "status" }, { header: "Duración", key: "duration" }, { header: "Grupos", key: "groups" }], rows: items.map((item) => ({ patient: item.patientName ?? item.patientId, date: new Date(item.startedAt).toLocaleString(), status: item.status, duration: `${item.durationSeconds ?? 0}s`, groups: item.groups?.map((group) => `G${group.groupId}`).join(", ") ?? "—" })) });
+  const calibrationReport = (items: Calibration[]) => ({ filename: "calibraciones", title: "Historial operativo", subtitle: "Cambios de calibración", section: "Calibraciones registradas", filters: groupId !== "all" ? `Grupo: ${groupId}` : "", columns: [{ header: "Fecha y hora", key: "date", width: 22 }, { header: "Grupo", key: "group" }, { header: "Sensor", key: "sensor" }, { header: "Coeficiente", key: "coefficient" }, { header: "Estado", key: "status" }], rows: items.map((item) => ({ date: new Date(item.createdAt).toLocaleString(), group: `Grupo ${item.groupId}`, sensor: item.sensorType === "pressure" ? "Presión" : "Fuerza", coefficient: item.coefficient ?? "—", status: item.status })) });
+  const exportEvents = async (kind: "pdf" | "excel") => { const params = new URLSearchParams(); if (query) params.set("search", query); if (level !== "all") params.set("level", level); if (category !== "all") params.set("category", category); if (groupId !== "all") params.set("groupId", groupId); if (dateFrom) params.set("dateFrom", new Date(`${dateFrom}T00:00:00`).toISOString()); if (dateTo) params.set("dateTo", new Date(`${dateTo}T23:59:59`).toISOString()); const definition = eventReport(await fetchAllReportPages<SystemLog>("/logs/search", params)); return kind === "pdf" ? downloadPdfReport(definition) : downloadExcelReport(definition); };
+  const exportCalibrations = async (kind: "pdf" | "excel") => { const params = new URLSearchParams(); if (groupId !== "all") params.set("groupId", groupId); const definition = calibrationReport(await fetchAllReportPages<Calibration>("/calibrations", params)); return kind === "pdf" ? downloadPdfReport(definition) : downloadExcelReport(definition); };
 
   return (
     <div className="space-y-6">
@@ -101,7 +108,7 @@ export function AdminHistoryPage() {
         </TabsList>
 
         <TabsContent value="events">
-          <HistoryCard title={`${events.total} eventos`} onExport={() => exportCsv("eventos-sebastian.csv", events.items)}>
+          <HistoryCard title={`${events.total} eventos`} onPdf={() => void exportEvents("pdf")} onExcel={() => void exportEvents("excel")}>
             {events.items.map((event) => <EventRow key={event.id} event={event} />)}
             {!events.items.length && <EmptyState />}
             <Pagination page={events.page} total={events.total} pageSize={events.pageSize} onPage={setEventPage} />
@@ -109,14 +116,14 @@ export function AdminHistoryPage() {
         </TabsContent>
 
         <TabsContent value="sessions">
-          <HistoryCard title={`${filteredSessions.length} sesiones clínicas`} onExport={() => exportCsv("sesiones-sebastian.csv", filteredSessions)}>
+          <HistoryCard title={`${filteredSessions.length} sesiones clínicas`} onPdf={() => downloadPdfReport(sessionReport(filteredSessions))} onExcel={() => void downloadExcelReport(sessionReport(filteredSessions))}>
             {filteredSessions.map((session) => <details key={session.id} className="rounded-xl border bg-card p-4"><summary className="cursor-pointer list-none"><div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center"><div><p className="font-medium">{session.patientName ?? session.patientId}</p><p className="text-xs text-muted-foreground">{new Date(session.startedAt).toLocaleString()} · {session.durationSeconds ?? 0}s</p></div><span className="text-sm">{session.groups?.map((group) => `G${group.groupId}`).join(", ") || "Grupo histórico"}</span><Badge variant={session.status === "completed" ? "default" : session.status === "running" ? "secondary" : "destructive"}>{session.status}</Badge></div></summary><pre className="mt-3 overflow-auto rounded-lg bg-muted p-3 text-xs">{JSON.stringify(session, null, 2)}</pre></details>)}
             {!filteredSessions.length && <EmptyState />}
           </HistoryCard>
         </TabsContent>
 
         <TabsContent value="calibrations">
-          <HistoryCard title={`${calibrations.total} calibraciones`} onExport={() => exportCsv("calibraciones-sebastian.csv", calibrations.items)}>
+          <HistoryCard title={`${calibrations.total} calibraciones`} onPdf={() => void exportCalibrations("pdf")} onExcel={() => void exportCalibrations("excel")}>
             {calibrations.items.map((item) => <details key={item.id} className="rounded-xl border bg-card p-4"><summary className="cursor-pointer list-none"><div className="grid gap-2 sm:grid-cols-[100px_120px_1fr_auto] sm:items-center"><span>Grupo {item.groupId}</span><span>{item.sensorType === "pressure" ? "Presión" : "Fuerza"}</span><div><p className="font-mono text-sm">Coef. {item.coefficient ? Number(item.coefficient).toFixed(6) : "-"}</p><p className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p></div><Badge variant={item.status === "completed" ? "default" : item.status === "failed" ? "destructive" : "secondary"}>{item.status}</Badge></div></summary><pre className="mt-3 overflow-auto rounded-lg bg-muted p-3 text-xs">{JSON.stringify(item, null, 2)}</pre></details>)}
             {!calibrations.items.length && <EmptyState />}
             <Pagination page={calibrations.page} total={calibrations.total} pageSize={calibrations.pageSize} onPage={setCalibrationPage} />
@@ -131,8 +138,8 @@ function EventRow({ event }: { event: SystemLog }) {
   return <details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer list-none"><div className="grid gap-2 sm:grid-cols-[12px_1fr_auto] sm:items-center"><span className={`h-2.5 w-2.5 rounded-full ${event.level === "error" ? "bg-red-500" : event.level === "warn" ? "bg-amber-500" : "bg-emerald-500"}`} /><div><p className="font-medium">{event.message}</p><p className="text-xs text-muted-foreground">{event.category ?? event.source} · {event.eventType ?? "evento heredado"}{event.groupId ? ` · Grupo ${event.groupId}` : ""}</p></div><time className="text-xs text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</time></div></summary>{event.metadata && <pre className="mt-3 overflow-auto rounded-lg bg-muted p-3 text-xs">{JSON.stringify(event.metadata, null, 2)}</pre>}</details>;
 }
 
-function HistoryCard({ title, onExport, children }: { title: string; onExport: () => void; children: ReactNode }) {
-  return <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><History className="h-4 w-4" />{title}</CardTitle><Button size="sm" variant="outline" onClick={onExport}><Download className="mr-2 h-4 w-4" />CSV</Button></CardHeader><CardContent className="space-y-2">{children}</CardContent></Card>;
+function HistoryCard({ title, onPdf, onExcel, children }: { title: string; onPdf: () => void; onExcel: () => void; children: ReactNode }) {
+  return <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2"><History className="h-4 w-4" />{title}</CardTitle><div className="flex gap-2"><Button size="sm" variant="outline" onClick={onPdf}><Download className="mr-2 h-4 w-4" />PDF</Button><Button size="sm" variant="outline" onClick={onExcel}><Download className="mr-2 h-4 w-4" />Excel</Button></div></CardHeader><CardContent className="space-y-2">{children}</CardContent></Card>;
 }
 
 function Pagination({ page, total, pageSize, onPage }: { page: number; total: number; pageSize: number; onPage: (page: number) => void }) {
@@ -142,18 +149,4 @@ function Pagination({ page, total, pageSize, onPage }: { page: number; total: nu
 
 function EmptyState() {
   return <div className="grid place-items-center rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground"><FlaskConical className="mb-2 h-6 w-6" />No se encontraron registros.</div>;
-}
-
-function exportCsv(filename: string, rows: unknown[]) {
-  const records = rows as Record<string, unknown>[];
-  if (!records.length) return;
-  const keys = Array.from(new Set(records.flatMap((record) => Object.keys(record))));
-  const escape = (value: unknown) => `"${String(typeof value === "object" && value !== null ? JSON.stringify(value) : value ?? "").replaceAll('"', '""')}"`;
-  const csv = [keys.map(escape).join(","), ...records.map((record) => keys.map((key) => escape(record[key])).join(","))].join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }

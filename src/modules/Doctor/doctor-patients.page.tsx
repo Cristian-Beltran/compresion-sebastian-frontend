@@ -15,6 +15,8 @@ import axios from "@/lib/axios";
 import { toast } from "sonner";
 import { Plus, Search } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { TreatmentSessionDetailDialog } from "./treatment-session-detail-dialog";
+import type { TreatmentSession } from "./treatment-session-detail-dialog";
 import {
   Bar,
   BarChart,
@@ -37,26 +39,7 @@ type PatientRow = {
   registeredAt?: string;
 };
 
-type Treatment = {
-  id: string;
-  patientId: string;
-  patientName?: string;
-  intensity?: string;
-  status: string;
-  cycleCount: number;
-  cycleTarget?: number;
-  startedAt: string;
-  endedAt: string | null;
-  durationSeconds?: number;
-  medicalReport?: string | null;
-  groups?: Array<{
-    groupId: number;
-    zone: string;
-    targetPressureKpa: number;
-    cycleTarget: number;
-    cycleCount?: number;
-  }> | null;
-};
+type Treatment = TreatmentSession & { patientId: string };
 
 const zoneLabels: Record<string, string> = {
   pantorrilla_izquierda: "Pantorrilla izquierda",
@@ -562,7 +545,7 @@ export function DoctorPatientsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={sessionOpen} onOpenChange={setSessionOpen}>
+      {sessionTreatment && <Dialog open={false} onOpenChange={setSessionOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>
@@ -675,7 +658,13 @@ export function DoctorPatientsPage() {
             </div>
           )}
         </DialogContent>
-      </Dialog>
+      </Dialog>}
+      <TreatmentSessionDetailDialog
+        open={sessionOpen}
+        onOpenChange={setSessionOpen}
+        treatment={sessionTreatment}
+        patientName={fichaPatient?.fullname}
+      />
     </div>
   );
 }

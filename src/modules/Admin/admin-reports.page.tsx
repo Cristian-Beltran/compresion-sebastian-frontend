@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "@/lib/axios";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
+import { downloadExcelReport, downloadPdfReport, fetchAllReportPages } from "@/lib/reports";
 import {
   Bar,
   BarChart,
@@ -25,6 +25,7 @@ export function AdminReportsPage() {
   const [treatmentsCount, setTreatmentsCount] = useState(0);
   const [patientsCount, setPatientsCount] = useState(0);
   const [alertsCount, setAlertsCount] = useState(0);
+  const [activity, setActivity] = useState<Array<{ createdAt: string; module?: string; action?: string }>>([]);
 
   useEffect(() => {
     axios.get("/doctor/treatments/history").then((res) => {
@@ -36,34 +37,15 @@ export function AdminReportsPage() {
     axios.get("/alerts").then((res) => {
       setAlertsCount(Array.isArray(res.data) ? res.data.length : res.data?.total ?? 0);
     }).catch(() => {});
+    fetchAllReportPages<{ createdAt: string; module?: string; action?: string }>("/logs/search", new URLSearchParams()).then(setActivity).catch(() => {});
   }, []);
 
-  const weeklyTreatments = [
-    { name: "Lun", value: 12 },
-    { name: "Mar", value: 19 },
-    { name: "Mié", value: 8 },
-    { name: "Jue", value: 15 },
-    { name: "Vie", value: 22 },
-    { name: "Sáb", value: 6 },
-    { name: "Dom", value: 3 },
-  ];
-
-  const moduleActivity = [
-    { name: "Pacientes", value: 84 },
-    { name: "Tratamientos", value: 120 },
-    { name: "Historial", value: 65 },
-    { name: "Alertas", value: 42 },
-    { name: "Usuarios", value: 18 },
-    { name: "Config.", value: 13 },
-  ];
-
-  const handleExportPdf = () => {
-    toast("Exportando reportes a PDF...");
-  };
-
-  const handleExportExcel = () => {
-    toast("Exportando reportes a Excel...");
-  };
+  const weeklyTreatments = Array.from({ length: 7 }, (_, offset) => { const date = new Date(); date.setDate(date.getDate() - 6 + offset); const key = date.toDateString(); return { name: date.toLocaleDateString("es-ES", { weekday: "short" }), value: activity.filter((row) => new Date(row.createdAt).toDateString() === key && String(row.module ?? "").toLowerCase().includes("tratamiento")).length }; });
+  const moduleActivity = Object.entries(activity.reduce<Record<string, number>>((total, row) => { const module = row.module || "Sistema"; total[module] = (total[module] ?? 0) + 1; return total; }, {})).map(([name, value]) => ({ name, value }));
+  const summaryRows = [{ indicator: "Tratamientos registrados", value: treatmentsCount }, { indicator: "Pacientes atendidos", value: patientsCount }, { indicator: "Alertas técnicas", value: alertsCount }, { indicator: "Accesos y actividad", value: activity.length }, ...moduleActivity.map((item) => ({ indicator: `Actividad · ${item.name}`, value: item.value }))];
+  const report = { filename: "reporte-general-venoflow", title: "Reporte general VenoFlow", subtitle: "Indicadores de uso clínico, técnico y administrativo", section: "Indicadores consolidados", columns: [{ header: "Indicador", key: "indicator", width: 42 }, { header: "Valor", key: "value" }], rows: summaryRows };
+  const handleExportPdf = () => downloadPdfReport(report);
+  const handleExportExcel = () => void downloadExcelReport(report);
 
   return (
     <div className="space-y-6">
@@ -110,7 +92,7 @@ export function AdminReportsPage() {
         />
         <MetricCard
           label="Accesos al sistema"
-          value={342}
+          value={activity.length}
           icon={<BarChart3 className="h-5 w-5" />}
           accentColor="accent"
         />

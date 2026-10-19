@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Download, FlaskConical, History, ListFilter } from "lucide-react";
 import { toast } from "sonner";
+import { downloadExcelReport, downloadPdfReport, fetchAllReportPages } from "@/lib/reports";
 
 type TechnicalLog = {
   id: string;
@@ -42,13 +43,16 @@ export function TechnicalHistoryPage() {
     setCurrentPage(1);
   }, [query, dateFrom, dateTo]);
 
-  const exportPdf = () => {
-    toast.success("Exportando historial técnico a PDF...");
+  const exportRows = async () => {
+    const params = new URLSearchParams();
+    if (query) params.set("search", query);
+    if (dateFrom) params.set("dateFrom", new Date(`${dateFrom}T00:00:00`).toISOString());
+    if (dateTo) params.set("dateTo", new Date(`${dateTo}T23:59:59`).toISOString());
+    return fetchAllReportPages<TechnicalLog>("/logs/technical", params);
   };
-
-  const exportExcel = () => {
-    toast.success("Exportando historial técnico a Excel...");
-  };
+  const report = (items: TechnicalLog[]) => ({ filename: "historial-tecnico", title: "Historial técnico", subtitle: "Auditoría de actividad técnica", section: "Actividad registrada", filters: [query && `Búsqueda: ${query}`, dateFrom && `Desde: ${dateFrom}`, dateTo && `Hasta: ${dateTo}`].filter(Boolean).join(" · "), columns: [{ header: "Fecha y hora", key: "date", width: 22 }, { header: "Usuario", key: "user" }, { header: "Acción realizada", key: "action", width: 44 }, { header: "Resultado", key: "result" }], rows: items.map((log) => ({ date: new Date(log.createdAt).toLocaleString(), user: log.actorName, action: log.action, result: log.result })) });
+  const exportPdf = async () => { try { downloadPdfReport(report(await exportRows())); toast.success("Reporte PDF descargado."); } catch { toast.error("No se pudo generar el reporte."); } };
+  const exportExcel = async () => { try { await downloadExcelReport(report(await exportRows())); toast.success("Reporte Excel descargado."); } catch { toast.error("No se pudo generar el reporte."); } };
 
   const maxPage = Math.max(1, Math.ceil(logs.total / logs.pageSize));
 
