@@ -5,7 +5,7 @@ import { Activity, Fan, Network, Thermometer, Cpu, Wrench } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type Group = { groupId:number; pressureSensorAvailable?:boolean; forceSensorAvailable?:boolean };
-type Status = { online:boolean; connected:boolean; wifiRssi?:number; temperatureC?:number|null; temperature1C?:number|null; temperature2C?:number|null; temperature1Valid?:boolean; temperature2Valid?:boolean; fanPowerPercent?:number; groups?:Group[] };
+type Status = { online:boolean; connected:boolean; lastSeenAt?:string; wifiRssi?:number; temperatureC?:number|null; temperature1C?:number|null; temperature2C?:number|null; temperature1Valid?:boolean; temperature2Valid?:boolean; fanPowerPercent?:number; groups?:Group[] };
 type Telemetry = { timestamp:string|number; temperature1C?:number|null; temperature2C?:number|null; temperature1Valid?:boolean; temperature2Valid?:boolean };
 type Log = { id:string; message:string; category?:string; eventType?:string; level:string; createdAt:string };
 type Alert = { id:string; severity:"info"|"warn"|"critical"; message:string; component?:string; active:boolean; createdAt:string };
@@ -17,10 +17,10 @@ const formatTemperature = (value?:number|null) => value == null || value < -100 
 export function TechnicalDashboardPage() {
   const [overview,setOverview]=useState<Overview|null>(null); const [alerts,setAlerts]=useState<Alert[]>([]);
   useEffect(()=>{let alive=true; const load=async()=>{try{const [device,alertRows]=await Promise.all([axios.get<Overview>("/device/admin-overview"),axios.get<Alert[]>("/alerts")]);if(alive){setOverview(device.data);setAlerts(alertRows.data)}}catch{if(alive)setOverview(null)}};void load();const timer=window.setInterval(()=>void load(),5000);return()=>{alive=false;window.clearInterval(timer)}},[]);
-  const status=overview?.status; const online=Boolean(status?.online && status?.connected); const groups=status?.groups ?? [];
+  const status=overview?.status; const recentlySeen=Boolean(status?.lastSeenAt && Date.now()-new Date(status.lastSeenAt).getTime()<=15_000); const online=Boolean(recentlySeen || status?.online || status?.connected); const groups=status?.groups ?? [];
   const temperatureData=useMemo(()=> (overview?.history ?? []).slice(-80).map((sample,index)=>({index, sensor1:sample.temperature1Valid===false?null:sample.temperature1C, sensor2:sample.temperature2Valid===false?null:sample.temperature2C})),[overview]);
   const pressure=online ? groups.filter((group)=>group.pressureSensorAvailable).length : 0;
-  const wifiSignal=!online?"Sin señal":(Number(status?.wifiRssi ?? -100)>=-70?"Buena":"Inestable");
+  const wifiRssi=Number(status?.wifiRssi); const wifiSignal=!online?"Sin señal":Number.isFinite(wifiRssi)?`${wifiRssi} dBm · ${wifiRssi>=-70?"Buena":"Inestable"}`:"Conectado";
   const subsystemRows=[[`Sensores de presión`,`${pressure}/4 conectados`],[`Sensores de fuerza`,online?"4/4 conectados":"0/4 conectados"],[`Bombas`,online?"4/4 conectadas":"0/4 conectadas"],[`Temperatura`,online?"2/2 conectados":"0/2 conectados"]];
   const recentAlerts=alerts.slice(0,6); const maintenance=(overview?.recentEvents ?? []).filter((entry)=>["control","calibration","maintenance","sensor_test","protocol_modified"].includes(entry.category ?? "")).slice(0,6);
   return <div className="space-y-6"><header><p className="eyebrow text-primary">Supervisión del equipo</p><h2 className="mt-1 text-3xl font-bold tracking-tight">Panel técnico</h2><div className={`mt-3 inline-flex rounded-full px-3 py-1.5 text-sm font-semibold ${tone(online)}`}>{online?"ESP32 conectado":"ESP32 desconectado"}</div></header>

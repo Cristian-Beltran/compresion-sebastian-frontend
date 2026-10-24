@@ -13,6 +13,7 @@ export type ReportDefinition = {
   columns: ReportColumn[];
   rows: Record<string, unknown>[];
   generatedBy?: string;
+  charts?: Array<{ title: string; points: Array<{ time: string; pressure: number; force: number }> }>;
 };
 
 const colors = { navy: "083B66", blue: "1673C8", green: "14A37F", pale: "EAF4FB", line: "CFE0EE", text: "1D2B3A" };
@@ -148,7 +149,31 @@ export function downloadPdfReport(definition: ReportDefinition) {
       pdf.text(`Página ${page}`, width - 38, pdf.internal.pageSize.getHeight() - 16, { align: "right" });
     },
   });
+  definition.charts?.forEach((chart) => drawTelemetryChart(pdf, chart));
   pdf.save(`${definition.filename}.pdf`);
+}
+
+function drawTelemetryChart(pdf: jsPDF, chart: NonNullable<ReportDefinition["charts"]>[number]) {
+  if (!chart.points.length) return;
+  pdf.addPage();
+  const width = pdf.internal.pageSize.getWidth(); const height = pdf.internal.pageSize.getHeight();
+  const left = 58; const right = width - 58; const top = 108; const bottom = height - 86;
+  const pressures = chart.points.map((point) => point.pressure); const forces = chart.points.map((point) => point.force);
+  const bounds = (values: number[]) => { const min = Math.min(...values); const max = Math.max(...values); const padding = Math.max((max - min) * 0.12, 0.25); return [min - padding, max + padding] as const; };
+  const [minPressure, maxPressure] = bounds(pressures); const [minForce, maxForce] = bounds(forces);
+  const x = (index: number) => left + (index / Math.max(chart.points.length - 1, 1)) * (right - left);
+  const y = (item: number, min: number, max: number) => bottom - ((item - min) / (max - min || 1)) * (bottom - top);
+  pdf.setFillColor(colors.navy); pdf.rect(0, 0, width, 52, "F"); pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.text("VenoFlow · Seguimiento clínico", 38, 31);
+  pdf.setTextColor(colors.navy); pdf.setFontSize(14); pdf.text(chart.title, left, 78); pdf.setDrawColor(colors.line); pdf.rect(left, top, right - left, bottom - top);
+  for (let step = 0; step <= 4; step += 1) {
+    const gridY = top + ((bottom - top) * step) / 4; pdf.setDrawColor("E6EEF4"); pdf.line(left, gridY, right, gridY); pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
+    pdf.setTextColor(colors.blue); pdf.text(`${(maxPressure - ((maxPressure - minPressure) * step) / 4).toFixed(1)} kPa`, left - 7, gridY + 3, { align: "right" });
+    pdf.setTextColor("E85B63"); pdf.text(`${(maxForce - ((maxForce - minForce) * step) / 4).toFixed(1)} N`, right + 7, gridY + 3);
+  }
+  const drawSeries = (values: number[], min: number, max: number, color: string) => { pdf.setDrawColor(color); pdf.setLineWidth(1.8); values.forEach((item, index) => { if (index) pdf.line(x(index - 1), y(values[index - 1], min, max), x(index), y(item, min, max)); }); };
+  drawSeries(pressures, minPressure, maxPressure, colors.blue); drawSeries(forces, minForce, maxForce, "E85B63");
+  pdf.setFontSize(9); pdf.setTextColor(colors.blue); pdf.text("— Presión (kPa)", left, height - 52); pdf.setTextColor("E85B63"); pdf.text("— Fuerza (N)", left + 105, height - 52);
+  pdf.setTextColor("627184"); pdf.text(`Muestras: ${chart.points.length} · ${chart.points[0].time} a ${chart.points[chart.points.length - 1].time}`, left, height - 35);
 }
 
 export async function fetchAllReportPages<T>(path: string, params: URLSearchParams): Promise<T[]> {
