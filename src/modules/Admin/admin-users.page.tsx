@@ -117,7 +117,7 @@ export function AdminUsersPage() {
     return users.filter((u) => {
       const byRole = roleFilter === "all" ? true : u.type === roleFilter;
       const text = `${u.fullname} ${u.email}`.toLowerCase();
-      return byRole && text.includes(search.toLowerCase());
+      return byRole && text.includes(String(search ?? "").toLowerCase());
     });
   }, [users, search, roleFilter]);
 

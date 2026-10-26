@@ -36,7 +36,7 @@ export function AdminAlertsPage() {
   const active = alerts.filter((a) => a.active);
   const filteredHistory = alerts.filter((a) => {
     const bySeverity = severity === "all" ? true : a.severity === severity;
-    return bySeverity && a.message.toLowerCase().includes(query.toLowerCase());
+    return bySeverity && String(a.message ?? "").toLowerCase().includes(String(query ?? "").toLowerCase());
   });
   const maxPage = Math.max(1, Math.ceil(filteredHistory.length / pageSize));
   const rows = filteredHistory.slice((page - 1) * pageSize, page * pageSize);

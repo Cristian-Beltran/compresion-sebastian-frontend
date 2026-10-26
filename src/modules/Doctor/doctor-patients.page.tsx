@@ -97,7 +97,7 @@ export function DoctorPatientsPage() {
   const filtered = useMemo(
     () =>
       patients.filter((p) =>
-        `${p.fullname} ${p.document ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+        `${p.fullname ?? ""} ${p.document ?? ""}`.toLowerCase().includes(String(search ?? "").toLowerCase()),
       ),
     [patients, search],
   );

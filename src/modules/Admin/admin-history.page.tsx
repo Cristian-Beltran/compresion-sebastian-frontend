@@ -63,7 +63,7 @@ export function AdminHistoryPage() {
 
   const filteredSessions = useMemo(() => sessions.filter((session) => {
     const text = `${session.patientName ?? ""} ${session.patientId} ${session.status}`.toLowerCase();
-    const matchesText = text.includes(query.toLowerCase());
+    const matchesText = text.includes(String(query ?? "").toLowerCase());
     const matchesGroup = groupId === "all" || session.groups?.some((group) => String(group.groupId) === groupId);
     const started = new Date(session.startedAt).getTime();
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : 0;

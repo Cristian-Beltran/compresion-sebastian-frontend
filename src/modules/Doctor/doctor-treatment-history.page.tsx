@@ -27,7 +27,7 @@ export function DoctorTreatmentHistoryPage() {
     const matchesTo = !applied.to || started <= new Date(`${applied.to}T23:59:59.999`);
     const zones = item.groups?.map((group) => group.zone).join(" ") ?? "";
     const text = `${item.patientName ?? item.patientId ?? ""} ${item.intensity ?? ""} ${item.status} ${zones}`.toLowerCase();
-    return matchesStatus && matchesFrom && matchesTo && text.includes(applied.search.toLowerCase());
+    return matchesStatus && matchesFrom && matchesTo && text.includes(String(applied.search ?? "").toLowerCase());
   }), [items, applied]);
 
   return <div className="space-y-6">

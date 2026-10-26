@@ -14,6 +14,7 @@ type TechnicalLog = {
   actorName: string;
   action: string;
   result: string;
+  message?: string;
 };
 
 type Paged<T> = { items: T[]; total: number; page: number; pageSize: number };
@@ -115,23 +116,25 @@ export function TechnicalHistoryPage() {
               <tbody>
                 {logs.items.map((log) => {
                   const date = new Date(log.createdAt);
+                  const result = String(log.result ?? "Sin resultado");
+                  const resultText = result.toLowerCase();
                   return (
                     <tr key={log.id} className="border-b border-border/40">
                       <td className="py-3 pr-4">{date.toLocaleDateString()}</td>
                       <td className="py-3 pr-4 font-mono text-xs">{date.toLocaleTimeString()}</td>
-                      <td className="py-3 pr-4">{log.actorName}</td>
-                      <td className="py-3 pr-4">{log.action}</td>
+                      <td className="py-3 pr-4">{log.actorName ?? "Sistema"}</td>
+                      <td className="py-3 pr-4">{log.action ?? log.message ?? "Actividad técnica"}</td>
                       <td className="py-3">
                         <Badge
                           variant={
-                            log.result.toLowerCase().includes("ok") || log.result.toLowerCase().includes("éxito")
+                            resultText.includes("ok") || resultText.includes("éxito")
                               ? "default"
-                              : log.result.toLowerCase().includes("fail") || log.result.toLowerCase().includes("error")
+                              : resultText.includes("fail") || resultText.includes("error")
                                 ? "destructive"
                                 : "secondary"
                           }
                         >
-                          {log.result}
+                          {result}
                         </Badge>
                       </td>
                     </tr>

@@ -51,12 +51,12 @@ export const userDoctorStore = create<UserClinicStore>((set, get) => ({
     const { data, search } = get();
     console.log("filtrando");
     const filtered = data.filter((item) => {
-      const { fullname, email } = item.user;
-      const normalized = search.toLowerCase();
+      const { fullname, email } = item.user ?? {};
+      const normalized = String(search ?? "").toLowerCase();
 
       return (
-        fullname?.toLowerCase().includes(normalized) ||
-        email?.toLowerCase().includes(normalized)
+        String(fullname ?? "").toLowerCase().includes(normalized) ||
+        String(email ?? "").toLowerCase().includes(normalized)
       );
     });
     set({ filteredData: filtered });
