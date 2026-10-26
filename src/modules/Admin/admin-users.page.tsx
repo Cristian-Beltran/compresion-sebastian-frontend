@@ -13,7 +13,8 @@ import {
 import { Label } from "@/components/ui/label";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { Eye, EyeOff, Plus, Search } from "lucide-react";
+import { Eye, EyeOff, Plus, Search, Trash2 } from "lucide-react";
+import { DoctorPatientsPage } from "@/modules/Doctor/doctor-patients.page";
 
 type UserRow = {
   id: string;
@@ -61,6 +62,7 @@ function PasswordInput({
           type="button"
           className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           onClick={() => setShow(!show)}
+          aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
@@ -70,6 +72,7 @@ function PasswordInput({
 }
 
 export function AdminUsersPage() {
+  const [activeTab, setActiveTab] = useState<"employees" | "patients">("employees");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "doctor" | "technical">("all");
@@ -99,6 +102,7 @@ export function AdminUsersPage() {
   const [statusUser, setStatusUser] = useState<UserRow | null>(null);
   const [adminPassword, setAdminPassword] = useState("");
   const [statusError, setStatusError] = useState("");
+  const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
 
   const load = async () => {
     const res = await axios.get("/admin/users");
@@ -238,8 +242,34 @@ export function AdminUsersPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteUser) return;
+    try {
+      await axios.delete(`/admin/users/${deleteUser.id}`);
+      toast.success("Usuario eliminado de la lista");
+      setDeleteUser(null);
+      await load();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message ?? "No se pudo eliminar el usuario");
+    }
+  };
+
+  if (activeTab === "patients") {
+    return <div className="space-y-6">
+      <div className="border-b"><div className="flex gap-5" role="tablist" aria-label="Tipo de usuario">
+        <Button role="tab" variant="ghost" onClick={() => setActiveTab("employees")}>Empleados</Button>
+        <Button role="tab" variant="ghost" className="border-b-2 border-primary rounded-none" aria-selected>Pacientes</Button>
+      </div></div>
+      <DoctorPatientsPage />
+    </div>;
+  }
+
   return (
     <div className="space-y-6">
+      <div className="border-b"><div className="flex gap-5" role="tablist" aria-label="Tipo de usuario">
+        <Button role="tab" variant="ghost" className="border-b-2 border-primary rounded-none" aria-selected>Empleados</Button>
+        <Button role="tab" variant="ghost" onClick={() => setActiveTab("patients")}>Pacientes</Button>
+      </div></div>
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow text-primary">Gestión de accesos</p>
@@ -335,6 +365,9 @@ export function AdminUsersPage() {
                           onClick={() => openStatus(user)}
                         >
                           {user.status === "ACTIVE" ? "Desactivar" : "Activar"}
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => setDeleteUser(user)} aria-label={`Eliminar a ${user.fullname}`}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </td>
@@ -592,6 +625,13 @@ export function AdminUsersPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteUser)} onOpenChange={(open) => !open && setDeleteUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Eliminar usuario</DialogTitle><DialogDescription>La cuenta de {deleteUser?.fullname} se ocultará y perderá el acceso. Su historial se conservará.</DialogDescription></DialogHeader>
+          <DialogFooter><Button variant="outline" onClick={() => setDeleteUser(null)}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete}>Sí, eliminar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

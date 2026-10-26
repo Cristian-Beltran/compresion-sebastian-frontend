@@ -13,6 +13,7 @@ export type ReportDefinition = {
   columns: ReportColumn[];
   rows: Record<string, unknown>[];
   generatedBy?: string;
+  metadata?: Array<[string, string]>;
   charts?: Array<{ title: string; points: Array<{ time: string; pressure: number; force: number }> }>;
 };
 
@@ -35,6 +36,7 @@ function download(blob: Blob, filename: string) {
 }
 
 function metadata(definition: ReportDefinition) {
+  if (definition.metadata?.length) return definition.metadata;
   return [
     ["Generado", new Date().toLocaleString()],
     ["Responsable", definition.generatedBy ?? "Usuario VenoFlow"],
@@ -171,8 +173,8 @@ function drawTelemetryChart(pdf: jsPDF, chart: NonNullable<ReportDefinition["cha
     pdf.setTextColor("E85B63"); pdf.text(`${(maxForce - ((maxForce - minForce) * step) / 4).toFixed(1)} N`, right + 7, gridY + 3);
   }
   const drawSeries = (values: number[], min: number, max: number, color: string) => { pdf.setDrawColor(color); pdf.setLineWidth(1.8); values.forEach((item, index) => { if (index) pdf.line(x(index - 1), y(values[index - 1], min, max), x(index), y(item, min, max)); }); };
-  drawSeries(pressures, minPressure, maxPressure, colors.blue); drawSeries(forces, minForce, maxForce, "E85B63");
-  pdf.setFontSize(9); pdf.setTextColor(colors.blue); pdf.text("— Presión (kPa)", left, height - 52); pdf.setTextColor("E85B63"); pdf.text("— Fuerza (N)", left + 105, height - 52);
+  drawSeries(pressures, minPressure, maxPressure, colors.blue); drawSeries(forces, minForce, maxForce, colors.green);
+  pdf.setFontSize(9); pdf.setTextColor(colors.blue); pdf.text("— Presión (kPa)", left, height - 52); pdf.setTextColor(colors.green); pdf.text("— Fuerza (N)", left + 105, height - 52);
   pdf.setTextColor("627184"); pdf.text(`Muestras: ${chart.points.length} · ${chart.points[0].time} a ${chart.points[chart.points.length - 1].time}`, left, height - 35);
 }
 
