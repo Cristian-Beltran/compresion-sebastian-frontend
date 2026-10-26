@@ -14,6 +14,8 @@ export type ReportDefinition = {
   rows: Record<string, unknown>[];
   generatedBy?: string;
   metadata?: Array<[string, string]>;
+  metadataFill?: string;
+  sections?: Array<{ title: string; columns: ReportColumn[]; rows: Record<string, unknown>[] }>;
   charts?: Array<{ title: string; points: Array<{ time: string; pressure: number; force: number }> }>;
 };
 
@@ -120,18 +122,22 @@ export function downloadPdfReport(definition: ReportDefinition) {
   pdf.setFont("helvetica", "bold"); pdf.setFontSize(18); pdf.text(definition.title, width - 38, 34, { align: "right" });
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.text(definition.subtitle, width - 38, 50, { align: "right" });
   pdf.setFillColor(colors.green); pdf.rect(0, 72, width, 4, "F");
-  pdf.setFillColor(colors.pale); pdf.rect(38, 92, width - 76, 60, "F");
+  const reportMetadata = metadata(definition);
+  const metadataHeight = Math.max(60, Math.ceil(reportMetadata.length / 2) * 22 + 16);
+  pdf.setFillColor(definition.metadataFill ?? colors.pale); pdf.rect(38, 92, width - 76, metadataHeight, "F");
+  pdf.setDrawColor(colors.line); pdf.rect(38, 92, width - 76, metadataHeight);
   pdf.setTextColor(colors.text); pdf.setFontSize(9);
-  metadata(definition).forEach(([label, data], index) => {
+  reportMetadata.forEach(([label, data], index) => {
     const x = index % 2 === 0 ? 52 : width / 2 + 12;
     const y = 113 + Math.floor(index / 2) * 22;
     pdf.setFont("helvetica", "bold"); pdf.text(`${label}:`, x, y);
     pdf.setFont("helvetica", "normal"); pdf.text(String(data), x + 84, y, { maxWidth: width / 2 - 140 });
   });
-  pdf.setFont("helvetica", "bold"); pdf.setTextColor(colors.navy); pdf.setFontSize(13); pdf.text(definition.section ?? "Actividad registrada", 38, 180);
-  pdf.setFillColor(colors.green); pdf.rect(38, 185, 150, 2, "F");
+  const sectionY = 92 + metadataHeight + 28;
+  pdf.setFont("helvetica", "bold"); pdf.setTextColor(colors.navy); pdf.setFontSize(13); pdf.text(definition.section ?? "Actividad registrada", 38, sectionY);
+  pdf.setFillColor(colors.green); pdf.rect(38, sectionY + 5, 150, 2, "F");
   autoTable(pdf, {
-    startY: 198,
+    startY: sectionY + 18,
     head: [definition.columns.map((column) => column.header)],
     body: definition.rows.map((row) => definition.columns.map((column) => value(row[column.key]))),
     theme: "grid",
@@ -150,6 +156,14 @@ export function downloadPdfReport(definition: ReportDefinition) {
       pdf.setFontSize(8); pdf.setTextColor("627184"); pdf.text("Documento generado por VenoFlow", 38, pdf.internal.pageSize.getHeight() - 16);
       pdf.text(`Página ${page}`, width - 38, pdf.internal.pageSize.getHeight() - 16, { align: "right" });
     },
+  });
+  definition.sections?.forEach((section) => {
+    pdf.addPage();
+    pdf.setFillColor(colors.navy); pdf.rect(0, 0, width, 52, "F");
+    pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.text("VenoFlow · Registro de terapia", 38, 31);
+    pdf.setTextColor(colors.navy); pdf.setFontSize(15); pdf.text(section.title, 38, 82);
+    pdf.setFillColor(colors.green); pdf.rect(38, 88, 220, 2, "F");
+    autoTable(pdf, { startY: 106, head: [section.columns.map((column) => column.header)], body: section.rows.map((row) => section.columns.map((column) => value(row[column.key]))), theme: "grid", margin: { left: 38, right: 38, bottom: 35 }, styles: { fontSize: 8, cellPadding: 6, textColor: colors.text, lineColor: colors.line, lineWidth: 0.4 }, headStyles: { fillColor: colors.blue, textColor: 255, fontStyle: "bold" }, alternateRowStyles: { fillColor: "F6FAFD" }, didDrawPage: () => { const page = pdf.getNumberOfPages(); pdf.setDrawColor(colors.line); pdf.line(38, pdf.internal.pageSize.getHeight() - 28, width - 38, pdf.internal.pageSize.getHeight() - 28); pdf.setFontSize(8); pdf.setTextColor("627184"); pdf.text("Documento generado por VenoFlow", 38, pdf.internal.pageSize.getHeight() - 16); pdf.text(`Página ${page}`, width - 38, pdf.internal.pageSize.getHeight() - 16, { align: "right" }); } });
   });
   definition.charts?.forEach((chart) => drawTelemetryChart(pdf, chart));
   pdf.save(`${definition.filename}.pdf`);
@@ -170,7 +184,7 @@ function drawTelemetryChart(pdf: jsPDF, chart: NonNullable<ReportDefinition["cha
   for (let step = 0; step <= 4; step += 1) {
     const gridY = top + ((bottom - top) * step) / 4; pdf.setDrawColor("E6EEF4"); pdf.line(left, gridY, right, gridY); pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
     pdf.setTextColor(colors.blue); pdf.text(`${(maxPressure - ((maxPressure - minPressure) * step) / 4).toFixed(1)} kPa`, left - 7, gridY + 3, { align: "right" });
-    pdf.setTextColor("E85B63"); pdf.text(`${(maxForce - ((maxForce - minForce) * step) / 4).toFixed(1)} N`, right + 7, gridY + 3);
+    pdf.setTextColor(colors.green); pdf.text(`${(maxForce - ((maxForce - minForce) * step) / 4).toFixed(1)} N`, right + 7, gridY + 3);
   }
   const drawSeries = (values: number[], min: number, max: number, color: string) => { pdf.setDrawColor(color); pdf.setLineWidth(1.8); values.forEach((item, index) => { if (index) pdf.line(x(index - 1), y(values[index - 1], min, max), x(index), y(item, min, max)); }); };
   drawSeries(pressures, minPressure, maxPressure, colors.blue); drawSeries(forces, minForce, maxForce, colors.green);

@@ -12,12 +12,17 @@ export type TreatmentGroup = {
   targetPressureKpa: number;
   cycleTarget: number;
   cycleCount?: number;
+  intensity?: string;
+  inflateTimeSeconds?: number;
+  holdTimeSeconds?: number;
+  releaseTimeSeconds?: number;
 };
 
 export type TreatmentSession = {
   id: string;
   patientId?: string | null;
   patientName?: string;
+  responsibleName?: string | null;
   sessionType?: "patient" | "manual";
   intensity?: string;
   status: string;
@@ -31,6 +36,7 @@ export type TreatmentSession = {
 };
 
 type TelemetryPoint = { groupId: number; pressureKpa: number; forceNewtons: number; recordedAt: string };
+type PatientDetails = { id: string; fullname?: string; age?: number; sex?: string; document?: string; phone?: string; diagnosis?: string; mobilityLevel?: string };
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,6 +55,7 @@ const statusLabel: Record<string, string> = { starting: "Preparando equipo", com
 export function TreatmentSessionDetailDialog({ open, onOpenChange, treatment, patientName }: Props) {
   const [readings, setReadings] = useState<TelemetryPoint[]>([]);
   const [loadingReadings, setLoadingReadings] = useState(false);
+  const [patient, setPatient] = useState<PatientDetails | null>(null);
 
   useEffect(() => {
     if (!open || !treatment) return;
@@ -59,6 +66,13 @@ export function TreatmentSessionDetailDialog({ open, onOpenChange, treatment, pa
       .finally(() => setLoadingReadings(false));
   }, [open, treatment?.id]);
 
+  useEffect(() => {
+    if (!open || !treatment?.patientId) { setPatient(null); return; }
+    axios.get<PatientDetails[]>("/doctor/patients")
+      .then((response) => setPatient(response.data.find((item) => item.id === treatment.patientId) ?? null))
+      .catch(() => setPatient(null));
+  }, [open, treatment?.patientId]);
+
   const readingsByGroup = useMemo(() => {
     const grouped = new Map<number, TelemetryPoint[]>();
     readings.forEach((point) => grouped.set(point.groupId, [...(grouped.get(point.groupId) ?? []), point]));
@@ -68,15 +82,8 @@ export function TreatmentSessionDetailDialog({ open, onOpenChange, treatment, pa
   if (!treatment) return null;
   const groups = treatment.groups ?? [];
   const displayName = treatment.sessionType === "manual" ? "Manual · Sin paciente asociado" : (treatment.patientName ?? patientName ?? treatment.patientId ?? "Paciente");
-  const detailRows = groups.map((group) => {
-    const points = readingsByGroup.get(group.groupId) ?? [];
-    const pressures = points.map((point) => point.pressureKpa);
-    const forces = points.map((point) => point.forceNewtons);
-    const average = (items: number[]) => items.length ? (items.reduce((sum, item) => sum + item, 0) / items.length).toFixed(2) : "—";
-    return { zone: zoneLabels[group.zone] ?? `Grupo ${group.groupId}`, target: `${group.targetPressureKpa} kPa`, cycles: `${group.cycleCount ?? 0}/${group.cycleTarget}`, pressure: points.length ? `${Math.min(...pressures).toFixed(2)} – ${Math.max(...pressures).toFixed(2)} · prom. ${average(pressures)} kPa` : "Sin lecturas", force: points.length ? `${Math.min(...forces).toFixed(2)} – ${Math.max(...forces).toFixed(2)} · prom. ${average(forces)} N` : "Sin lecturas" };
-  });
   const downloadExcel = () => void downloadExcelReport({ filename: `sesion-${treatment.id}`, title: "Reporte de sesión clínica", subtitle: displayName, section: "Telemetría registrada cada 2 segundos", filters: `Fecha: ${new Date(treatment.startedAt).toLocaleString()} · Estado: ${statusLabel[treatment.status] ?? treatment.status} · Protocolo: ${(treatment.intensity ?? "—").toUpperCase()}`, columns: [{ header: "Fecha y hora", key: "time", width: 22 }, { header: "Grupo", key: "group" }, { header: "Zona", key: "zone", width: 24 }, { header: "Presión (kPa)", key: "pressure" }, { header: "Fuerza (N)", key: "force" }], rows: readings.map((point) => ({ time: new Date(point.recordedAt).toLocaleString(), group: point.groupId, zone: zoneLabels[groups.find((group) => group.groupId === point.groupId)?.zone ?? ""] ?? `Grupo ${point.groupId}`, pressure: point.pressureKpa, force: point.forceNewtons })) });
-const downloadPdf = () => downloadPdfReport({ filename: `sesion-${treatment.id}`, title: "Reporte de sesión clínica", subtitle: displayName, section: "Resumen por zona", metadata: [["Paciente", displayName], ["Fecha de sesión", new Date(treatment.startedAt).toLocaleDateString()], ["Hora", new Date(treatment.startedAt).toLocaleTimeString()], ["Estado", statusLabel[treatment.status] ?? treatment.status], ["Responsable", "VenoFlow"], ["Generado", new Date().toLocaleString()]], filters: `Fecha: ${new Date(treatment.startedAt).toLocaleString()} · ${statusLabel[treatment.status] ?? treatment.status} · Duración: ${treatment.durationSeconds ?? 0}s · Ciclos: ${treatment.cycleCount}/${treatment.cycleTarget ?? "—"} · Reporte: ${treatment.medicalReport ?? "Sin registro"}`, columns: [{ header: "Zona", key: "zone" }, { header: "Presión objetivo", key: "target" }, { header: "Ciclos", key: "cycles" }, { header: "Presión registrada", key: "pressure", width: 38 }, { header: "Fuerza registrada", key: "force", width: 38 }], rows: detailRows, charts: groups.map((group) => ({ title: `${zoneLabels[group.zone] ?? `Grupo ${group.groupId}`} · presión y fuerza`, points: (readingsByGroup.get(group.groupId) ?? []).map((point) => ({ time: new Date(point.recordedAt).toLocaleTimeString(), pressure: point.pressureKpa, force: point.forceNewtons })) })) });
+  const downloadPdf = () => { const started = new Date(treatment.startedAt); const duration = Math.max(0, Math.round((treatment.durationSeconds ?? 0) / 60)); const sessionRows = [{ field: "Paciente", information: displayName }, { field: "CI", information: patient?.document ?? "No registrado" }, { field: "Edad / sexo", information: patient ? `${patient.age ?? "—"} años · ${patient.sex ?? "—"}` : "No registrado" }, { field: "Teléfono", information: patient?.phone ?? "No registrado" }, { field: "Diagnóstico", information: patient?.diagnosis ?? "No registrado" }, { field: "Movilidad", information: patient?.mobilityLevel ?? "No registrado" }, { field: "Responsable", information: treatment.responsibleName ?? "No registrado" }, { field: "Fecha y hora", information: started.toLocaleString() }, { field: "Duración", information: `${duration} min` }, { field: "Estado final", information: statusLabel[treatment.status] ?? treatment.status }, { field: "Interrupciones", information: treatment.status === "interrupted" ? "1 manual" : "0" }, { field: "Protocolo general", information: groups.length > 1 ? "Configuración mixta" : (treatment.intensity ?? "—").toUpperCase() }, { field: "Presión general", information: "Definida por zona" }, { field: "Ciclos", information: String(treatment.cycleCount) }, { field: "Zonas utilizadas", information: String(groups.length) }, { field: "Reporte clínico", information: treatment.medicalReport ?? "Sin reporte clínico registrado" }]; const parameterRows = groups.map((group) => ({ zone: zoneLabels[group.zone] ?? `Grupo ${group.groupId}`, protocol: group.intensity ?? treatment.intensity ?? "—", pressure: `${group.targetPressureKpa} kPa`, timing: `${group.inflateTimeSeconds ?? "—"}s / ${group.holdTimeSeconds ?? "—"}s / ${group.releaseTimeSeconds ?? "—"}s`, cycles: `${group.cycleCount ?? 0}/${group.cycleTarget}`, readings: String((readingsByGroup.get(group.groupId) ?? []).length) })); downloadPdfReport({ filename: `sesion-${treatment.id}`, title: "Registro de terapia", subtitle: `${displayName} · ${started.toLocaleString()}`, section: "Datos de la sesión", metadataFill: "FFFFFF", metadata: [["Paciente", displayName], ["Fecha de sesión", started.toLocaleDateString()], ["Hora", started.toLocaleTimeString()], ["Responsable", treatment.responsibleName ?? "No registrado"], ["Estado", statusLabel[treatment.status] ?? treatment.status], ["Generado", new Date().toLocaleString()]], columns: [{ header: "Campo", key: "field", width: 28 }, { header: "Información", key: "information", width: 90 }], rows: sessionRows, sections: [{ title: "Parámetros configurados por zona", columns: [{ header: "Zona", key: "zone" }, { header: "Protocolo", key: "protocol" }, { header: "Presión objetivo", key: "pressure" }, { header: "Tiempos I/S/L", key: "timing" }, { header: "Ciclos", key: "cycles" }, { header: "Lecturas", key: "readings" }], rows: parameterRows }], charts: groups.map((group) => ({ title: `${zoneLabels[group.zone] ?? `Grupo ${group.groupId}`} · presión y fuerza`, points: (readingsByGroup.get(group.groupId) ?? []).map((point) => ({ time: new Date(point.recordedAt).toLocaleTimeString(), pressure: point.pressureKpa, force: point.forceNewtons })) })) }); };
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-4xl">

@@ -260,7 +260,7 @@ export function AdminUsersPage() {
         <Button role="tab" variant="ghost" onClick={() => setActiveTab("employees")}>Empleados</Button>
         <Button role="tab" variant="ghost" className="border-b-2 border-primary rounded-none" aria-selected>Pacientes</Button>
       </div></div>
-      <DoctorPatientsPage />
+      <DoctorPatientsPage adminMode />
     </div>;
   }
 

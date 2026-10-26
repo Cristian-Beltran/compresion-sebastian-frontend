@@ -13,7 +13,7 @@ import {
 import { Label } from "@/components/ui/label";
 import axios from "@/lib/axios";
 import { toast } from "sonner";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { TreatmentSessionDetailDialog } from "./treatment-session-detail-dialog";
 import type { TreatmentSession } from "./treatment-session-detail-dialog";
@@ -48,7 +48,7 @@ const zoneLabels: Record<string, string> = {
   pie_derecho: "Pie derecho",
 };
 
-export function DoctorPatientsPage() {
+export function DoctorPatientsPage({ adminMode = false }: { adminMode?: boolean }) {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [search, setSearch] = useState("");
@@ -80,6 +80,8 @@ export function DoctorPatientsPage() {
 
   const [sessionOpen, setSessionOpen] = useState(false);
   const [sessionTreatment, setSessionTreatment] = useState<Treatment | null>(null);
+  const [statusPatient, setStatusPatient] = useState<PatientRow | null>(null);
+  const [deletePatient, setDeletePatient] = useState<PatientRow | null>(null);
 
   const load = async () => {
     const [patientsRes, treatmentsRes] = await Promise.all([
@@ -157,6 +159,26 @@ export function DoctorPatientsPage() {
     }
   };
 
+  const confirmStatus = async () => {
+    if (!statusPatient) return;
+    try {
+      await axios.patch(`/doctor/patients/${statusPatient.id}/status`, { status: statusPatient.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" });
+      toast.success(statusPatient.status === "ACTIVE" ? "Paciente desactivado" : "Paciente activado");
+      setStatusPatient(null);
+      await load();
+    } catch { toast.error("No se pudo actualizar el estado del paciente"); }
+  };
+
+  const confirmDelete = async () => {
+    if (!deletePatient) return;
+    try {
+      await axios.delete(`/doctor/patients/${deletePatient.id}`);
+      toast.success("Paciente eliminado de la lista");
+      setDeletePatient(null);
+      await load();
+    } catch { toast.error("No se pudo eliminar el paciente"); }
+  };
+
   const openFicha = async (patient: PatientRow) => {
     setFichaPatient(patient);
     const patientTreatments = treatments
@@ -216,6 +238,7 @@ export function DoctorPatientsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label="Buscar pacientes por nombre o documento"
               placeholder="Buscar por nombre o documento"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -258,13 +281,19 @@ export function DoctorPatientsPage() {
                         {lastSession ? new Date(lastSession.startedAt).toLocaleDateString() : "-"}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button size="sm" variant="outline" onClick={() => openFicha(patient)}>
                             Ver ficha
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => openEdit(patient)}>
                             Editar
                           </Button>
+                          {adminMode && <>
+                            <Button size="sm" variant={patient.status === "ACTIVE" ? "destructive" : "outline"} onClick={() => setStatusPatient(patient)}>
+                              {patient.status === "ACTIVE" ? "Desactivar" : "Activar"}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => setDeletePatient(patient)} aria-label={`Eliminar a ${patient.fullname}`}><Trash2 className="h-4 w-4" /></Button>
+                          </>}
                         </div>
                       </td>
                     </tr>
@@ -423,7 +452,7 @@ export function DoctorPatientsPage() {
       </Dialog>
 
       <Dialog open={fichaOpen} onOpenChange={setFichaOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden overscroll-contain sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{fichaPatient?.fullname}</DialogTitle>
             <DialogDescription>
@@ -479,11 +508,11 @@ export function DoctorPatientsPage() {
               </CardContent>
             </Card>
           </div>
-          <Card>
+          <Card className="min-h-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Historial de sesiones</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-h-[38vh] overflow-y-auto overscroll-contain">
               {fichaTreatments.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                   Sin terapias registradas
@@ -501,7 +530,7 @@ export function DoctorPatientsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {fichaTreatments.slice(0, 10).map((t) => (
+                      {fichaTreatments.map((t) => (
                         <tr key={t.id} className="border-t">
                           <td className="px-3 py-2">
                             {new Date(t.startedAt).toLocaleDateString()}
@@ -544,6 +573,9 @@ export function DoctorPatientsPage() {
           </Card>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(statusPatient)} onOpenChange={(open) => !open && setStatusPatient(null)}><DialogContent><DialogHeader><DialogTitle>{statusPatient?.status === "ACTIVE" ? "Desactivar" : "Activar"} paciente</DialogTitle><DialogDescription>{statusPatient?.status === "ACTIVE" ? "El paciente ya no estará disponible para iniciar terapias." : "El paciente volverá a estar disponible para terapias."}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setStatusPatient(null)}>Cancelar</Button><Button variant={statusPatient?.status === "ACTIVE" ? "destructive" : "default"} onClick={confirmStatus}>Confirmar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={Boolean(deletePatient)} onOpenChange={(open) => !open && setDeletePatient(null)}><DialogContent><DialogHeader><DialogTitle>Eliminar paciente</DialogTitle><DialogDescription>Se ocultará de la lista y terapias, conservando su historial clínico.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setDeletePatient(null)}>Cancelar</Button><Button variant="destructive" onClick={confirmDelete}>Eliminar</Button></DialogFooter></DialogContent></Dialog>
 
       {sessionTreatment && <Dialog open={false} onOpenChange={setSessionOpen}>
         <DialogContent className="sm:max-w-3xl">
