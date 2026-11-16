@@ -93,14 +93,18 @@ export function useMqttSubscribe<T = Record<string, unknown>>(
         // ignore invalid JSON
       }
     };
-    client.on("connect", () => {
+    // Re-subscribe after every reconnect; keep a reference so it can be removed
+    // on unmount (otherwise each visit to a page leaks one listener).
+    const onConnect = () => {
       client.subscribe(topic);
-    });
+    };
+    client.on("connect", onConnect);
     client.on("message", handler);
     if (client.connected) {
       client.subscribe(topic);
     }
     return () => {
+      client.removeListener("connect", onConnect);
       client.removeListener("message", handler);
       client.unsubscribe(topic);
       releaseMqttClient();
