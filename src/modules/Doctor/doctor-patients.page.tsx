@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatDuration } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -596,7 +597,7 @@ export function DoctorPatientsPage({ adminMode = false }: { adminMode?: boolean 
                   <CardContent className="space-y-2 pt-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Duración</span>
-                      <span className="font-medium">{sessionTreatment.durationSeconds ?? 0}s</span>
+                      <span className="font-medium">{formatDuration(sessionTreatment.durationSeconds)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Zonas</span>
@@ -673,9 +674,10 @@ export function DoctorPatientsPage({ adminMode = false }: { adminMode?: boolean 
                         pressure: g.targetPressureKpa,
                         cycles: g.cycleCount ?? sessionTreatment.cycleCount,
                       })) ?? []}
+                      margin={{ top: 4, right: 4, bottom: 20, left: 4 }}
                     >
-                      <XAxis dataKey="name" fontSize={11} />
-                      <YAxis fontSize={11} unit=" kPa" />
+                      <XAxis dataKey="name" fontSize={11} label={{ value: "Zona", position: "insideBottom", offset: -12, fontSize: 12, fill: "#627184" }} />
+                      <YAxis fontSize={11} unit=" kPa" domain={[0, "auto"]} label={{ value: "Presión", angle: -90, position: "insideLeft", fontSize: 12, fill: "#627184" }} />
                       <Tooltip />
                       <Bar dataKey="pressure" name="Presión objetivo" radius={[4,4,0,0]}>{(sessionTreatment.groups ?? []).map((group) => <Cell key={group.groupId} fill={["#1673c8", "#14805e", "#ca7b28", "#8b5cf6"][group.groupId - 1]} />)}</Bar>
                     </BarChart>
@@ -684,7 +686,7 @@ export function DoctorPatientsPage({ adminMode = false }: { adminMode?: boolean 
               </Card>
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Ciclos por zona</CardTitle></CardHeader>
-                <CardContent className="h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={sessionTreatment.groups?.map((g) => ({ name: zoneLabels[g.zone] ?? `G${g.groupId}`, realizados: g.cycleCount ?? sessionTreatment.cycleCount, meta: g.cycleTarget })) ?? []}><XAxis dataKey="name" fontSize={11}/><YAxis fontSize={11}/><Tooltip/><Bar dataKey="realizados" name="Realizados" radius={[4,4,0,0]}>{(sessionTreatment.groups ?? []).map((group) => <Cell key={group.groupId} fill={["#1673c8", "#14805e", "#ca7b28", "#8b5cf6"][group.groupId - 1]} />)}</Bar><Bar dataKey="meta" name="Meta" fill="#94a3b8" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></CardContent>
+                <CardContent className="h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={sessionTreatment.groups?.map((g) => ({ name: zoneLabels[g.zone] ?? `G${g.groupId}`, realizados: g.cycleCount ?? sessionTreatment.cycleCount, meta: g.cycleTarget })) ?? []} margin={{ top: 4, right: 4, bottom: 20, left: 4 }}><XAxis dataKey="name" fontSize={11} label={{ value: "Zona", position: "insideBottom", offset: -12, fontSize: 12, fill: "#627184" }} /><YAxis fontSize={11} allowDecimals={false} label={{ value: "Ciclos", angle: -90, position: "insideLeft", fontSize: 12, fill: "#627184" }} /><Tooltip/><Bar dataKey="realizados" name="Realizados" radius={[4,4,0,0]}>{(sessionTreatment.groups ?? []).map((group) => <Cell key={group.groupId} fill={["#1673c8", "#14805e", "#ca7b28", "#8b5cf6"][group.groupId - 1]} />)}</Bar><Bar dataKey="meta" name="Meta" fill="#94a3b8" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></CardContent>
               </Card>
               <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={downloadSessionCsv}>Descargar Excel</Button><Button onClick={downloadSessionPdf}>Descargar PDF</Button></div>
             </div>

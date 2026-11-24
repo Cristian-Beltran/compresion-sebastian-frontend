@@ -19,7 +19,7 @@ export type ReportDefinition = {
   charts?: Array<{ title: string; points: Array<{ time: string; pressure: number; force: number }> }>;
 };
 
-const colors = { navy: "083B66", blue: "1673C8", green: "14A37F", pale: "EAF4FB", line: "CFE0EE", text: "1D2B3A" };
+const colors = { navy: "083B66", blue: "1673C8", green: "14A37F", red: "E85B63", pale: "EAF4FB", line: "CFE0EE", text: "1D2B3A" };
 
 const value = (raw: unknown) => {
   if (raw === null || raw === undefined) return "—";
@@ -173,23 +173,40 @@ function drawTelemetryChart(pdf: jsPDF, chart: NonNullable<ReportDefinition["cha
   if (!chart.points.length) return;
   pdf.addPage();
   const width = pdf.internal.pageSize.getWidth(); const height = pdf.internal.pageSize.getHeight();
-  const left = 58; const right = width - 58; const top = 108; const bottom = height - 86;
-  const pressures = chart.points.map((point) => point.pressure); const forces = chart.points.map((point) => point.force);
-  const bounds = (values: number[]) => { const min = Math.min(...values); const max = Math.max(...values); const padding = Math.max((max - min) * 0.12, 0.25); return [min - padding, max + padding] as const; };
-  const [minPressure, maxPressure] = bounds(pressures); const [minForce, maxForce] = bounds(forces);
+  const left = 78; const right = width - 72; const top = 108; const bottom = height - 118;
+  const positive = (raw: number) => (Number.isFinite(raw) ? Math.max(0, raw) : 0);
+  const pressures = chart.points.map((point) => positive(point.pressure)); const forces = chart.points.map((point) => positive(point.force));
+  // Las magnitudes son siempre positivas: el eje arranca en 0 y deja 12 % de aire arriba.
+  const ceiling = (values: number[], floor: number) => Math.max(Math.max(...values) * 1.12, floor);
+  const maxPressure = ceiling(pressures, 1); const maxForce = ceiling(forces, 0.5);
   const x = (index: number) => left + (index / Math.max(chart.points.length - 1, 1)) * (right - left);
-  const y = (item: number, min: number, max: number) => bottom - ((item - min) / (max - min || 1)) * (bottom - top);
+  const y = (item: number, max: number) => bottom - (item / max) * (bottom - top);
   pdf.setFillColor(colors.navy); pdf.rect(0, 0, width, 52, "F"); pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.text("VenoFlow · Seguimiento clínico", 38, 31);
-  pdf.setTextColor(colors.navy); pdf.setFontSize(14); pdf.text(chart.title, left, 78); pdf.setDrawColor(colors.line); pdf.rect(left, top, right - left, bottom - top);
+  pdf.setTextColor(colors.navy); pdf.setFontSize(14); pdf.text(chart.title, left, 78); pdf.setDrawColor(colors.line); pdf.setLineWidth(0.8); pdf.rect(left, top, right - left, bottom - top);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
   for (let step = 0; step <= 4; step += 1) {
-    const gridY = top + ((bottom - top) * step) / 4; pdf.setDrawColor("E6EEF4"); pdf.line(left, gridY, right, gridY); pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
-    pdf.setTextColor(colors.blue); pdf.text(`${(maxPressure - ((maxPressure - minPressure) * step) / 4).toFixed(1)} kPa`, left - 7, gridY + 3, { align: "right" });
-    pdf.setTextColor(colors.green); pdf.text(`${(maxForce - ((maxForce - minForce) * step) / 4).toFixed(1)} N`, right + 7, gridY + 3);
+    const gridY = top + ((bottom - top) * step) / 4; pdf.setDrawColor("E6EEF4"); pdf.line(left, gridY, right, gridY);
+    pdf.setTextColor(colors.blue); pdf.text(`${(maxPressure - (maxPressure * step) / 4).toFixed(1)} kPa`, left - 7, gridY + 3, { align: "right" });
+    pdf.setTextColor(colors.red); pdf.text(`${(maxForce - (maxForce * step) / 4).toFixed(1)} N`, right + 7, gridY + 3);
   }
-  const drawSeries = (values: number[], min: number, max: number, color: string) => { pdf.setDrawColor(color); pdf.setLineWidth(1.8); values.forEach((item, index) => { if (index) pdf.line(x(index - 1), y(values[index - 1], min, max), x(index), y(item, min, max)); }); };
-  drawSeries(pressures, minPressure, maxPressure, colors.blue); drawSeries(forces, minForce, maxForce, colors.green);
-  pdf.setFontSize(9); pdf.setTextColor(colors.blue); pdf.text("— Presión (kPa)", left, height - 52); pdf.setTextColor(colors.green); pdf.text("— Fuerza (N)", left + 105, height - 52);
-  pdf.setTextColor("627184"); pdf.text(`Muestras: ${chart.points.length} · ${chart.points[0].time} a ${chart.points[chart.points.length - 1].time}`, left, height - 35);
+  // Eje X: marcas de hora repartidas a lo largo de la sesión.
+  const tickCount = Math.min(6, chart.points.length);
+  pdf.setDrawColor(colors.line); pdf.setTextColor("627184");
+  for (let tick = 0; tick < tickCount; tick += 1) {
+    const index = tickCount === 1 ? 0 : Math.round((tick * (chart.points.length - 1)) / (tickCount - 1));
+    const tickX = x(index); pdf.line(tickX, bottom, tickX, bottom + 4);
+    pdf.text(chart.points[index].time, tickX, bottom + 15, { align: tick === 0 ? "left" : tick === tickCount - 1 ? "right" : "center" });
+  }
+  pdf.setFontSize(9); pdf.setFont("helvetica", "bold");
+  pdf.setTextColor("627184"); pdf.text("Tiempo (hora)", (left + right) / 2, bottom + 32, { align: "center" });
+  // jsPDF ignora la rotación al alinear, así que el centrado vertical se calcula a mano.
+  const middle = (top + bottom) / 2;
+  pdf.setTextColor(colors.blue); pdf.text("Presión (kPa)", left - 50, middle + pdf.getTextWidth("Presión (kPa)") / 2, { angle: 90 });
+  pdf.setTextColor(colors.red); pdf.text("Fuerza (N)", right + 50, middle - pdf.getTextWidth("Fuerza (N)") / 2, { angle: -90 });
+  const drawSeries = (values: number[], max: number, color: string) => { pdf.setDrawColor(color); pdf.setLineWidth(1.8); values.forEach((item, index) => { if (index) pdf.line(x(index - 1), y(values[index - 1], max), x(index), y(item, max)); }); };
+  drawSeries(pressures, maxPressure, colors.blue); drawSeries(forces, maxForce, colors.red);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(colors.blue); pdf.text("— Presión (kPa)", left, height - 58); pdf.setTextColor(colors.red); pdf.text("— Fuerza (N)", left + 105, height - 58);
+  pdf.setTextColor("627184"); pdf.text(`Muestras: ${chart.points.length} · ${chart.points[0].time} a ${chart.points[chart.points.length - 1].time}`, left, height - 40);
 }
 
 export async function fetchAllReportPages<T>(path: string, params: URLSearchParams): Promise<T[]> {

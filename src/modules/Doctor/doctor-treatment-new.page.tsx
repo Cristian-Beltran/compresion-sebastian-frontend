@@ -22,10 +22,13 @@ const ZONES: Record<ZoneKey, { groupId: 1 | 2 | 3 | 4; name: string; zone: Treat
   rightFoot: { groupId: 4, name: "Pie derecho", zone: "pie_derecho", path: "M265 339l-13 65c-3 9 1 14 10 15l65-2c11-2 15-9 10-18-10-18-18-38-24-61z" },
 };
 
+// Tiempo máximo que el equipo espera para alcanzar la presión objetivo antes
+// de marcar "TIMEOUT INFLA". No se expone en la UI: siempre el máximo del firmware.
+const INFLATE_TIMEOUT_SECONDS = 60;
 const DEFAULTS: Record<Exclude<Intensity, "custom">, Preset> = {
-  low: { intensity: "low", targetPressureKpa: 3, inflateTimeSeconds: 15, holdTimeSeconds: 8, releaseTimeSeconds: 3, cycleTarget: 20 },
-  medium: { intensity: "medium", targetPressureKpa: 5, inflateTimeSeconds: 15, holdTimeSeconds: 10, releaseTimeSeconds: 3, cycleTarget: 8 },
-  high: { intensity: "high", targetPressureKpa: 7, inflateTimeSeconds: 15, holdTimeSeconds: 12, releaseTimeSeconds: 3, cycleTarget: 30 },
+  low: { intensity: "low", targetPressureKpa: 3, inflateTimeSeconds: INFLATE_TIMEOUT_SECONDS, holdTimeSeconds: 8, releaseTimeSeconds: 3, cycleTarget: 20 },
+  medium: { intensity: "medium", targetPressureKpa: 5, inflateTimeSeconds: INFLATE_TIMEOUT_SECONDS, holdTimeSeconds: 10, releaseTimeSeconds: 3, cycleTarget: 8 },
+  high: { intensity: "high", targetPressureKpa: 7, inflateTimeSeconds: INFLATE_TIMEOUT_SECONDS, holdTimeSeconds: 12, releaseTimeSeconds: 3, cycleTarget: 30 },
 };
 const customFallback: Preset = { ...DEFAULTS.medium, intensity: "custom" };
 
@@ -55,12 +58,12 @@ export function DoctorTreatmentNewPage() {
       const next = { ...DEFAULTS };
       configurationsRes.data.forEach((row: Record<string, unknown>) => {
         if (row.intensity === "low" || row.intensity === "medium" || row.intensity === "high") {
-          next[row.intensity] = { intensity: row.intensity, targetPressureKpa: number(row.targetPressureKpa), inflateTimeSeconds: number(row.inflateTimeSeconds) || 15, holdTimeSeconds: number(row.holdTimeSeconds), releaseTimeSeconds: 3, cycleTarget: number(row.cycleTarget) };
+          next[row.intensity] = { intensity: row.intensity, targetPressureKpa: number(row.targetPressureKpa), inflateTimeSeconds: INFLATE_TIMEOUT_SECONDS, holdTimeSeconds: number(row.holdTimeSeconds), releaseTimeSeconds: 3, cycleTarget: number(row.cycleTarget) };
         }
       });
       setPresets(next);
     }
-    if (profileRes.data?.targetPressureKpa) setCustomProfile({ ...customFallback, ...profileRes.data, intensity: "custom", releaseTimeSeconds: 3 });
+    if (profileRes.data?.targetPressureKpa) setCustomProfile({ ...customFallback, ...profileRes.data, intensity: "custom", releaseTimeSeconds: 3, inflateTimeSeconds: INFLATE_TIMEOUT_SECONDS });
   };
 
   useEffect(() => { void load().catch(() => toast.error("No se pudo cargar la información clínica")); }, []);
@@ -115,6 +118,6 @@ export function DoctorTreatmentNewPage() {
 }
 
 function ZoneConfigurator({ zone, draft, onTab, onChange, onAccept, onRemove }: { zone: string; draft: GroupConfig; onTab: (intensity: Intensity) => void; onChange: (patch: Partial<GroupConfig>) => void; onAccept: () => void; onRemove: () => void }) {
-  const fields: Array<[keyof GroupConfig, string, string, number, number, number?]> = [["targetPressureKpa", "Presión objetivo", "kPa", 1, 40, .5], ["inflateTimeSeconds", "Inflado", "s", 1, 60], ["holdTimeSeconds", "Mantenimiento", "s", 1, 60], ["cycleTarget", "Ciclos", "", 1, 100]];
+  const fields: Array<[keyof GroupConfig, string, string, number, number, number?]> = [["targetPressureKpa", "Presión objetivo", "kPa", 1, 40, .5], ["holdTimeSeconds", "Mantenimiento", "s", 1, 60], ["cycleTarget", "Ciclos", "", 1, 100]];
   return <div className="space-y-4"><div><p className="text-xs font-bold uppercase text-[#1673c8]">{zone}</p><h3 className="font-extrabold">Configuración independiente</h3></div><div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"><button className={`rounded-md px-2 py-2 text-xs font-bold ${draft.intensity !== "custom" ? "bg-background shadow" : ""}`} onClick={() => onTab("medium")}>Predefinida</button><button className={`rounded-md px-2 py-2 text-xs font-bold ${draft.intensity === "custom" ? "bg-background shadow" : ""}`} onClick={() => onTab("custom")}>Personalizada</button></div>{draft.intensity !== "custom" && <select className="h-10 w-full rounded-md border bg-background px-3" value={draft.intensity} onChange={(event) => onTab(event.target.value as Intensity)}><option value="low">Baja intensidad</option><option value="medium">Media intensidad</option><option value="high">Alta intensidad</option></select>}<div className="grid grid-cols-2 gap-2">{fields.map(([key, label, unit, min, max, step]) => <label key={key} className="grid gap-1 text-xs font-bold">{label}<span className="relative"><input className="h-10 w-full rounded-lg border bg-background px-2 pr-7 text-sm font-normal" type="number" min={min} max={max} step={step} disabled={draft.intensity !== "custom"} value={draft[key] as number} onChange={(event) => onChange({ [key]: Number(event.target.value) })} /><small className="absolute right-2 top-3 text-muted-foreground">{unit}</small></span></label>)}</div><p className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">Liberación fija de 3 segundos entre ciclos.</p><div className="grid grid-cols-[1fr_auto] gap-2"><Button className="bg-emerald-600 hover:bg-emerald-700" onClick={onAccept}><Check className="h-4 w-4" />Aceptar configuración</Button><Button variant="outline" onClick={onRemove}>Quitar</Button></div></div>;
 }

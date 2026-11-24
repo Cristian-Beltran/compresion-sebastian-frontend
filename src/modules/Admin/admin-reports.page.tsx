@@ -105,9 +105,9 @@ export function AdminReportsPage() {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyTreatments}>
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} />
+              <BarChart data={weeklyTreatments} margin={{ top: 4, right: 4, bottom: 20, left: 4 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} label={{ value: "Día", position: "insideBottom", offset: -12, fontSize: 12, fill: "#627184" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} allowDecimals={false} label={{ value: "Tratamientos", angle: -90, position: "insideLeft", fontSize: 12, fill: "#627184" }} />
                 <Tooltip
                   contentStyle={{
                     background: "#fff",
@@ -128,9 +128,9 @@ export function AdminReportsPage() {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={moduleActivity}>
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} />
+              <BarChart data={moduleActivity} margin={{ top: 4, right: 4, bottom: 20, left: 4 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} label={{ value: "Módulo", position: "insideBottom", offset: -12, fontSize: 12, fill: "#627184" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#627184" }} axisLine={false} tickLine={false} allowDecimals={false} label={{ value: "Eventos", angle: -90, position: "insideLeft", fontSize: 12, fill: "#627184" }} />
                 <Tooltip
                   contentStyle={{
                     background: "#fff",

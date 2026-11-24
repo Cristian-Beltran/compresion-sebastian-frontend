@@ -128,9 +128,9 @@ export function AdminDashboardPage() {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData}>
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <BarChart data={weeklyData} margin={{ top: 4, right: 4, bottom: 20, left: 4 }}>
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} label={{ value: "Día de la semana", position: "insideBottom", offset: -12, fontSize: 12, fill: "#627184" }} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} label={{ value: "Tratamientos", angle: -90, position: "insideLeft", fontSize: 12, fill: "#627184" }} />
                 <Tooltip
                   contentStyle={{
                     background: "#fff",
